@@ -1,0 +1,15 @@
+version: '3.3'
+services:
+  db:
+    container_name: chess-db
+    build:
+      context: ./Docker
+      dockerfile: db.Dockerfile
+    volumes:
+      - ./var/pgdata:/var/lib/postgresql/data
+    ports:
+      - '5435:5432'
+    environment:
+      - POSTGRES_USER=chess-admin
+      - POSTGRES_DB=chess-db
+      - POSTGRES_PASSWORD=1234   

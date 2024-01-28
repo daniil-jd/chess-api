@@ -1,0 +1,42 @@
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="create_room_and_user_room_candidate_tables" author="daniil.zharnov">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="chess_rooms"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="chess_rooms">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="chess_room_pk"/>
+            </column>
+            <column name="user_id_1" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_room_user1" references="chess_users(id)"/>
+            </column>
+            <column name="user_id_2" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_room_user2" references="chess_users(id)"/>
+            </column>
+            <column name="created_at" type="timestamp without time zone" defaultValueComputed="timezone('UTC', now())::timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="user_room_candidates">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="user_room_candidate_pk"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_user_room_candidate" references="chess_users(id)"/>
+            </column>
+            <column name="created_at" type="timestamp without time zone" defaultValueComputed="timezone('UTC', now())::timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="actual_until" type="timestamp without time zone" defaultValueComputed="timezone('UTC', now())::timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,58 @@
+server:
+  port: ${PORT:5678}
+  forward-headers-strategy: framework
+  shutdown: graceful
+  tomcat:
+    mbeanregistry:
+      enabled: true # enable tomcat metrics
+  ssl:
+    key-store: classpath:keystore/chess-forms-games-cert.p12  # path inside docker container
+    key-store-type: PKCS12                                    # keystore type
+    key-alias: chess-forms-games-cert                         # keystore alias
+    key-store-password: 123456                                # keystore password
+
+spring:
+  application:
+    name: gold-adapter-api
+  datasource:
+    url: jdbc:postgresql://${POSTGRESQL_SERVER}/${POSTGRESQL_DATABASE}
+    username: ${POSTGRESQL_USERNAME}
+    password: ${POSTGRESQL_PASSWORD}
+  jpa:
+    database: postgresql
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+  sql:
+    init:
+      mode: always
+  liquibase:
+    change-log: classpath:/db/changelog/db.changelog-master.xml
+  jackson:
+    deserialization:
+      ADJUST_DATES_TO_CONTEXT_TIME_ZONE: false
+      FAIL_ON_UNKNOWN_PROPERTIES: false
+      FAIL_ON_NUMBERS_FOR_ENUMS: true
+      FAIL_ON_NULL_FOR_PRIMITIVES: true
+      USE_BIG_DECIMAL_FOR_FLOATS: true
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+    generator:
+      WRITE_BIGDECIMAL_AS_PLAIN: true
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: helper.spprt.616@gmail.com
+    password: yoltiaraxkmxxqzb
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+logging:
+  level:
+    ROOT: INFO
+    org.zalando.logbook: TRACE
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr([%X{proposalId:-},%X{traceId:-},%X{spanId:-}]){blue}[%thread] %clr(%-5level) %clr(%logger{36}){magenta} - %msg%n"

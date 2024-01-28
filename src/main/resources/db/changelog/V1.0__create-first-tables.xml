@@ -1,0 +1,60 @@
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="create_item_stocks_table" author="daniil.zharnov">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="chess_users"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="chess_users">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="chess_users_pk"/>
+            </column>
+            <column name="username" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="mail" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="password" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="user_side" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_enabled" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp without time zone" defaultValueComputed="timezone('UTC', now())::timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="registration_token">
+            <column name="token" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="reg_token_pk"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="reg_token_user_fk" references="chess_users(id)"/>
+            </column>
+            <column name="created_at" type="timestamp without time zone" defaultValueComputed="timezone('UTC', now())::timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="auth_token">
+            <column name="token" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="auth_token_pk"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="auth_token_user_fk" references="chess_users(id)"/>
+            </column>
+            <column name="created_at" type="timestamp without time zone" defaultValueComputed="timezone('UTC', now())::timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

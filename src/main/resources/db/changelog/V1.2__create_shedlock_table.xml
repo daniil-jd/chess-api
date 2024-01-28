@@ -1,0 +1,27 @@
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="create_shedlock_table" author="daniil.zharnov">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="shedlock"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="shedlock">
+            <column name="name" type="text">
+                <constraints primaryKey="true" primaryKeyName="shedlock_pk"/>
+            </column>
+            <column name="lock_until" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="locked_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="locked_by" type="text">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>
