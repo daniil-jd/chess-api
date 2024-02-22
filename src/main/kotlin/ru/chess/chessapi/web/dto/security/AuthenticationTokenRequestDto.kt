@@ -1,4 +1,4 @@
-package ru.chess.chessapi.dto
+package ru.chess.chessapi.web.dto.security
 
 data class AuthenticationTokenRequestDto(
     val username: String,

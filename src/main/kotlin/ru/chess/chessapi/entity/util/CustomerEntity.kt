@@ -1,4 +1,4 @@
-package ru.chess.chessapi.entity
+package ru.chess.chessapi.entity.util
 
 import java.util.UUID
 import javax.persistence.*

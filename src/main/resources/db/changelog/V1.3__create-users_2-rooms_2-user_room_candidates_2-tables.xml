@@ -1,0 +1,149 @@
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="create-users_2-rooms_2-user_room_candidates_2-tables" author="daniil.zharnov">
+        <!--chess_users_2-->
+        <createTable tableName="chess_users_2">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="chess_users_2_pk"/>
+            </column>
+            <column name="username" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="signature" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="serial_number" type="bigint" autoIncrement="true" incrementBy="1" startWith="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rating" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp without time zone" defaultValueComputed="timezone('UTC', now())::timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex clustered= "true"
+                     indexName="idx_chess_users_2_username"
+                     schemaName="public"
+                     tableName="chess_users_2"
+                     unique="true">
+            <column descending="true" name="username"/>
+        </createIndex>
+
+        <!--chess_rooms_2-->
+        <createTable tableName="chess_rooms_2">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="chess_rooms_2_pk"/>
+            </column>
+            <column name="user_1" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_1_side" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_2" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_2_side" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="history" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="winner_side" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="win_type" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="timestamp without time zone" defaultValueComputed="timezone('UTC', now())::timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint  baseColumnNames="id"
+                                  baseTableName="chess_users_2"
+                                  baseTableSchemaName="public"
+                                  constraintName="fk_chess_users_2_chess_rooms_2_user_1"
+                                  onDelete="NO ACTION"
+                                  onUpdate="NO ACTION"
+                                  referencedColumnNames="user_1"
+                                  referencedTableName="chess_rooms_2"
+                                  referencedTableSchemaName="public"
+                                  validate="true"/>
+
+        <addForeignKeyConstraint  baseColumnNames="id"
+                                  baseTableName="chess_users_2"
+                                  baseTableSchemaName="public"
+                                  constraintName="fk_chess_users_2_chess_rooms_2_user_2"
+                                  onDelete="NO ACTION"
+                                  onUpdate="NO ACTION"
+                                  referencedColumnNames="user_2"
+                                  referencedTableName="chess_rooms_2"
+                                  referencedTableSchemaName="public"
+                                  validate="true"/>
+
+        <createIndex clustered= "true"
+                     indexName="idx_chess_rooms_2_user_1"
+                     schemaName="public"
+                     tableName="chess_rooms_2"
+                     unique="false">
+            <column descending="true" name="user_1"/>
+        </createIndex>
+
+        <createIndex clustered= "true"
+                     indexName="idx_chess_rooms_2_user_2"
+                     schemaName="public"
+                     tableName="chess_rooms_2"
+                     unique="false">
+            <column descending="true" name="user_2"/>
+        </createIndex>
+
+        <sql splitStatements="true" stripComments="true" endDelimiter="\nGO">
+            CREATE UNIQUE INDEX idx_chess_rooms_2_user_1_user_2_winner_side ON chess_rooms_2 (user_1, user_2, winner_side)
+                WHERE winner_side is null
+        </sql>
+
+        <!--user-room-candidates-2-->
+        <createTable tableName="user_room_candidates_2">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="user_room_candidates_2_pk"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_side" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active_until" type="timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint  baseColumnNames="id"
+                                  baseTableName="chess_users_2"
+                                  baseTableSchemaName="public"
+                                  constraintName="fk_chess_users_2_user_room_candidates_2_user_id"
+                                  onDelete="NO ACTION"
+                                  onUpdate="NO ACTION"
+                                  referencedColumnNames="user_id"
+                                  referencedTableName="user_room_candidates_2"
+                                  referencedTableSchemaName="public"
+                                  validate="true"/>
+
+        <createIndex clustered= "true"
+                     indexName="idx_user_room_candidates_2_user_id"
+                     schemaName="public"
+                     tableName="user_room_candidates_2"
+                     unique="false">
+            <column descending="true" name="user_black"/>
+        </createIndex>
+
+    </changeSet>
+</databaseChangeLog>

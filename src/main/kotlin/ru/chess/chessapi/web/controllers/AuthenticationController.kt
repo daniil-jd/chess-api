@@ -1,11 +1,11 @@
-package ru.chess.chessapi.controllers
+package ru.chess.chessapi.web.controllers
 
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import ru.chess.chessapi.dto.AuthenticationTokenRequestDto
-import ru.chess.chessapi.dto.AuthenticationTokenResponseDto
+import ru.chess.chessapi.web.dto.security.AuthenticationTokenRequestDto
+import ru.chess.chessapi.web.dto.security.AuthenticationTokenResponseDto
 import ru.chess.chessapi.service.security.AuthenticationService
 import ru.chess.chessapi.utils.Constants.AUTHENTICATION_API
 

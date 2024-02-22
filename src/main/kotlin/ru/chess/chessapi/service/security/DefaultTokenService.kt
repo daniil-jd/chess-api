@@ -23,7 +23,8 @@ class DefaultTokenService(
             .findById(UUID.fromString(token.toString()))
             .orElseThrow{ BadCredentialsException("invalid token") }
         val user = tokenEntity.user
-
-        return UsernamePasswordAuthenticationToken(user, user.password)
+        // todo fix it one day or delete
+//        return UsernamePasswordAuthenticationToken(user, user.password)
+        return UsernamePasswordAuthenticationToken(user, user.username)
     }
 }

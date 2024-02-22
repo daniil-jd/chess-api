@@ -13,7 +13,7 @@ import java.util.Optional
 import java.util.UUID
 
 interface UserRoomCandidateRepository : PagingAndSortingRepository<UserRoomCandidateEntity, UUID> {
-    fun findByUser(user: UserEntity): Optional<UserRoomCandidateEntity>
+    fun findByUser(user: UserEntity): UserRoomCandidateEntity?
     fun findAllByActualUntilLessThanEqual(actualUntil: LocalDateTime, page: Pageable): Slice<UserRoomCandidateEntity>
     fun findAllByActualUntilIsGreaterThanEqual(actualUntil: LocalDateTime, page: Pageable): Slice<UserRoomCandidateEntity>
     @Modifying

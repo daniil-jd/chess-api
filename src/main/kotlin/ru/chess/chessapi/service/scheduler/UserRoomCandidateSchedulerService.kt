@@ -1,11 +1,13 @@
 package ru.chess.chessapi.service.scheduler
 
+import mu.KotlinLogging
 import net.javacrumbs.shedlock.core.LockAssert
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import ru.chess.chessapi.dto.message.enums.SideType
+import ru.chess.chessapi.entity.RoomEntity
+import ru.chess.chessapi.websocket.message.enums.SideType
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
 import ru.chess.chessapi.service.RoomService
@@ -24,6 +26,8 @@ class UserRoomCandidateSchedulerService(
     private val sideService: SideService,
     private val wsHandler: WSHandler
 ) {
+
+    private val logger = KotlinLogging.logger {}
     companion object {
         const val SCHEDULER_LOCK_INTERVAL = "5s"
     }
@@ -31,7 +35,7 @@ class UserRoomCandidateSchedulerService(
     @Transactional
     @Scheduled(
         fixedRateString = "PT15S",
-        initialDelayString =  "PT10S"
+        initialDelayString = "PT10S"
     )
     @SchedulerLock(name = "UserRoomCandidateSchedulerService", lockAtMostFor = SCHEDULER_LOCK_INTERVAL)
     fun searchCandidates() {
@@ -42,11 +46,14 @@ class UserRoomCandidateSchedulerService(
             val temp = mutableSetOf<UserRoomCandidateEntity>()
             for (i in 0..candidates.size - 2) {
                 val canA = candidates[i].user
+                val sideA = candidates[i].userSide
                 for (j in i + 1..candidates.size - 1) {
                     val canB = candidates[j].user
-                    if ((canB.userSide == sideService.findOppositeSide(canA.userSide) ||
-                            canB.userSide == SideType.RANDOM && canA.userSide == SideType.RANDOM) &&
-                        !(temp.contains(candidates[j]) || temp.contains(candidates[i]))) {
+                    val sideB = candidates[j].userSide
+                    if ((sideB == sideService.findOppositeSide(sideA) ||
+                            sideB == SideType.RANDOM && sideA == SideType.RANDOM) &&
+                        !(temp.contains(candidates[j]) || temp.contains(candidates[i]))
+                    ) {
                         pairsToCreate.add(CandidatePair(candidates[j], candidates[i]))
                         temp.add(candidates[j])
                         temp.add(candidates[i])
@@ -56,12 +63,80 @@ class UserRoomCandidateSchedulerService(
             }
             pairsToCreate.forEach {
                 val first = it.first.user
+                val firstSide = it.first.userSide
                 val second = it.second.user
-                changeSidesIfItNeeds(user1 = first, user2 = second)
-                val room = roomService.createRoom(first, second)
+                val secondSide = it.second.userSide
+                val room = createRoomWithCandidates(first, firstSide, second, secondSide)
 
                 userRoomCandidateService.deleteCandidates(listOf(it.first, it.second))
                 wsHandler.sendRoomCreatedMessage(room)
+            }
+        }
+    }
+
+    private fun createRoomWithCandidates(
+        user1: UserEntity, side1: SideType, user2: UserEntity, side2: SideType
+    ): RoomEntity {
+        return when (side1) {
+            SideType.RANDOM -> {
+                when (side2) {
+                    SideType.RANDOM, SideType.BLACK -> {
+                        roomService.createRoom(
+                            user1 = user1,
+                            user1SideType = side1,
+                            user2 = user2,
+                            user2SideType = side2
+                        )
+                    }
+                    SideType.WHITE -> {
+                        roomService.createRoom(
+                            user1 = user2,
+                            user1SideType = side2,
+                            user2 = user1,
+                            user2SideType = side1
+                        )
+                    }
+                }
+            }
+            SideType.WHITE -> {
+                when (side2) {
+                    SideType.RANDOM, SideType.BLACK -> {
+                        roomService.createRoom(
+                            user1 = user1,
+                            user1SideType = side1,
+                            user2 = user2,
+                            user2SideType = side2
+                        )
+                    }
+                    else -> {
+                        logger.error {
+                            "User 1 is white and user 2 is white, something go wrong. User1: $user1, user2: $user2"
+                        }
+                        throw Exception(
+                            "User 1 is white and user 2 is white, something go wrong. User1: $user1, user2: $user2"
+                        )
+                    }
+                }
+            }
+            SideType.BLACK -> {
+                when (side2) {
+                    SideType.RANDOM, SideType.WHITE -> {
+                        roomService.createRoom(
+                            user1 = user1,
+                            user1SideType = side1,
+                            user2 = user2,
+                            user2SideType = side2
+                        )
+                    }
+                    else -> {
+                        logger.error {
+                            "User 1 is black and user 2 is black, something go wrong. User1: $user1, user2: $user2"
+                        }
+                        throw Exception(
+                            "User 1 is black and user 2 is black, something go wrong. User1: $user1, user2: $user2"
+                        )
+                    }
+                }
             }
         }
     }
@@ -74,47 +149,6 @@ class UserRoomCandidateSchedulerService(
 //        userRoomCandidateService.deleteAllOverdue()
 //        todo: room_not_found - send to requester
 //    }
-
-    private fun findCandidateWithNeededSide(
-        candidates: MutableList<UserRoomCandidateEntity>,
-        currentUserSide: SideType
-    ): Optional<UserRoomCandidateEntity> {
-        val result = when (currentUserSide) {
-            SideType.WHITE -> {
-                candidates.find { c -> c.user.userSide == SideType.BLACK || c.user.userSide == SideType.RANDOM }
-            }
-
-            SideType.BLACK -> {
-                candidates.find { c -> c.user.userSide == SideType.WHITE || c.user.userSide == SideType.RANDOM }
-            }
-
-            SideType.RANDOM -> {
-                candidates.find { c ->
-                    c.user.userSide == SideType.BLACK ||
-                        c.user.userSide == SideType.WHITE ||
-                        c.user.userSide == SideType.RANDOM
-                }
-            }
-        }
-        return if (result != null) {
-            Optional.of(result)
-        } else {
-            Optional.empty()
-        }
-    }
-
-    private fun changeSidesIfItNeeds(user1: UserEntity, user2: UserEntity) {
-        if (user1.userSide == SideType.RANDOM) {
-            if (user2.userSide == SideType.RANDOM) {
-                userService.replaceRandomSide(user1, SideType.WHITE)
-                userService.replaceRandomSide(user2, SideType.BLACK)
-            }
-            userService.replaceRandomSide(user1, sideService.findOppositeSide(user2.userSide))
-        }
-        if (user2.userSide == SideType.RANDOM) {
-            userService.replaceRandomSide(user2, sideService.findOppositeSide(user1.userSide))
-        }
-    }
 }
 
 data class CandidatePair<out A, out B>(

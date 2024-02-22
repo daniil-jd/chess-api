@@ -1,7 +1,7 @@
 package ru.chess.chessapi.service
 
 import org.springframework.stereotype.Service
-import ru.chess.chessapi.dto.message.enums.SideType
+import ru.chess.chessapi.websocket.message.enums.SideType
 
 @Service
 class SideService {

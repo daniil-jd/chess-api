@@ -4,12 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.*
-import ru.chess.chessapi.dto.message.*
-import ru.chess.chessapi.dto.message.enums.MessageType
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
-import ru.chess.chessapi.service.MessageConvertorService
 import ru.chess.chessapi.service.DistributorService
+import ru.chess.chessapi.service.MessageConvertorService
+import ru.chess.chessapi.websocket.message.*
+import ru.chess.chessapi.websocket.message.enums.MessageType
 import java.io.IOException
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -50,7 +50,9 @@ class WSHandler(
 
                 is MoveMessageDto -> {
                     logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    val userToSend = distributorService.findAnotherUserInGivenRoom(message)
+                    val userToSend = distributorService.updateRoomHistoryAndReturnAnotherUser(
+                        message.room, message.sideOfMove, message.move
+                    )
                     logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
                     val messageToAnotherUser = MoveMessageDto(
                         messageType = MessageType.CHESS_MOVE,
@@ -68,7 +70,9 @@ class WSHandler(
 
                 is MatchFinishedMessageDto -> {
                     logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    val userToSend = distributorService.findAnotherUserInGivenRoomWhenMatchIsOver(message)
+                    val userToSend = distributorService.updateRoomHistoryAndReturnAnotherUserWhenMatchIsOver(
+                        message.room, message.winnerSide, message.finishType
+                    )
                     logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
                     val messageToAnotherUser = MatchFinishedMessageDto(
                         messageType = MessageType.MATCH_FINISHED,
@@ -105,31 +109,32 @@ class WSHandler(
 
     fun sendRoomCreatedMessage(room: RoomEntity) {
         val user1 = room.user1
+        val user1Side = room.user1Side
         val user2 = room.user2
+        val user2Side = room.user2Side
 
-        if (user2 != null) {
-            userIdToSessions.forEach { (userId, wsSession) ->
-                try {
-                    if (userId == user1.id) {
-                        val message = RoomFoundMessageDto(
-                            messageType = MessageType.ROOM_FOUND,
-                            room = room.id!!,
-                            opponentName = user2.username,
-                            playerSide = user1.userSide
-                        )
-                        sendMessageToAnotherUser(message, user1, wsSession)
-                    } else if (userId == user2.id) {
-                        val message = RoomFoundMessageDto(
-                            messageType = MessageType.ROOM_FOUND,
-                            room = room.id!!,
-                            opponentName = user1.username,
-                            playerSide = user2.userSide
-                        )
-                        sendMessageToAnotherUser(message, user2, wsSession)
-                    }
-                } catch (ex: IOException) {
-                    logger.error(ex) { "Some exception during sending through web socket: ${ex.message}" }
+
+        userIdToSessions.forEach { (userId, wsSession) ->
+            try {
+                if (userId == user1.id) {
+                    val message = RoomFoundMessageDto(
+                        messageType = MessageType.ROOM_FOUND,
+                        room = room.id!!,
+                        opponentName = user2.username,
+                        playerSide = user1Side
+                    )
+                    sendMessageToAnotherUser(message, user1, wsSession)
+                } else if (userId == user2.id) {
+                    val message = RoomFoundMessageDto(
+                        messageType = MessageType.ROOM_FOUND,
+                        room = room.id!!,
+                        opponentName = user1.username,
+                        playerSide = user2Side
+                    )
+                    sendMessageToAnotherUser(message, user2, wsSession)
                 }
+            } catch (ex: IOException) {
+                logger.error(ex) { "Some exception during sending through web socket: ${ex.message}" }
             }
         }
     }

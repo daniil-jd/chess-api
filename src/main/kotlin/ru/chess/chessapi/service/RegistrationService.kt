@@ -3,16 +3,13 @@ package ru.chess.chessapi.service
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import ru.chess.chessapi.dto.AuthenticationTokenResponseDto
-import ru.chess.chessapi.dto.RegistrationRequestDto
-import ru.chess.chessapi.entity.RegistrationTokenEntity
 import ru.chess.chessapi.entity.UserEntity
+import ru.chess.chessapi.exception.UserAlreadyExistException
 import ru.chess.chessapi.repository.RegistrationTokenRepository
 import ru.chess.chessapi.service.security.AuthenticationService
 import ru.chess.chessapi.service.security.DefaultMailService
-import ru.chess.chessapi.utils.Constants.REGISTRATION_MAX_ATTEMPTS
-import java.lang.RuntimeException
-import java.util.*
+import ru.chess.chessapi.web.dto.request.RegistrationRequest
+import ru.chess.chessapi.web.dto.response.RegistrationResponse
 
 @Service
 class RegistrationService(
@@ -24,54 +21,20 @@ class RegistrationService(
 ) {
 
     @Transactional
-    fun register(registerRequest: RegistrationRequestDto) {
-        with(registerRequest) {
-            val userOptional = userService.findUserByName(username)
-
-            if (userOptional.isEmpty) {
-                val user = UserEntity(
-                    username = username,
-                    mail = mail,
-                    password = passwordEncoder.encode(password),
-                    isEnabled = false,
-                    userSide = userSide
-                )
-                val tokenEntity = RegistrationTokenEntity(user = user)
-                userService.save(user)
-                val tokenValue = registrationTokenRepository.save(tokenEntity).token.toString()
-                defaultMailService.sendRegistrationToken(mail = mail, token = tokenValue)
-            } else {
-                if (userOptional.get().isEnabled) {
-                    throw RuntimeException("user already enabled")
-                }
-                with(userOptional.get()) {
-                    if (registrationTokenRepository.findAllByUserId(id!!).size >= REGISTRATION_MAX_ATTEMPTS) {
-                        throw RuntimeException("to many registration requests")
-                    }
-                    val tokenEntity = RegistrationTokenEntity(user = this)
-                    val tokenValue = registrationTokenRepository.save(tokenEntity).token.toString()
-                    defaultMailService.sendRegistrationToken(mail = mail!!, token = tokenValue)
-                }
+    fun simpleRegister(request: RegistrationRequest): RegistrationResponse {
+        with(request) {
+            val user = userService.findUserByName(name)
+            if (user != null) {
+                throw UserAlreadyExistException(name)
             }
+            val createdUser = userService.save(UserEntity(username = name, signature = signature, rating = 0))
+            return RegistrationResponse(
+                userId = createdUser.id.toString(),
+                number = createdUser.serialNumber!!,
+                name = createdUser.username,
+                rating = createdUser.rating
+            )
         }
-    }
-
-    @Transactional
-    fun confirm(tokenValue: String): AuthenticationTokenResponseDto {
-        val tokenEntity = registrationTokenRepository.findById(UUID.fromString(tokenValue))
-        if (tokenEntity.isEmpty) {
-            throw RuntimeException("registration token not found")
-        }
-        val userEntity = tokenEntity.get().user
-        if (registrationTokenRepository.findAllByUserId(userEntity.id!!).size >= REGISTRATION_MAX_ATTEMPTS) {
-            throw RuntimeException("to many registration requests")
-        }
-        if (userEntity.isEnabled) {
-            throw RuntimeException("user already enabled")
-        }
-        userEntity.isEnabled = true
-        val authToken = authenticationService.save(userEntity).token
-        return AuthenticationTokenResponseDto(authToken.toString())
     }
 
 }

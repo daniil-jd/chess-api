@@ -1,7 +1,5 @@
 package ru.chess.chessapi.service
 
-import ru.chess.chessapi.entity.CustomerEntity
-
 class BookService {
 
     fun tt() {

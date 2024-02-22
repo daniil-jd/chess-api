@@ -2,7 +2,7 @@ package ru.chess.chessapi.service
 
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import ru.chess.chessapi.entity.MessageEntity
+import ru.chess.chessapi.entity.util.MessageEntity
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.repository.MessageRepository
 

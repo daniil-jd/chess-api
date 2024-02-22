@@ -1,4 +1,4 @@
-package ru.chess.chessapi.dto
+package ru.chess.chessapi.web.dto.request
 
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
 import java.time.LocalDateTime

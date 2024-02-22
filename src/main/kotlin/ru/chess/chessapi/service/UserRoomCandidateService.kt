@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
 import ru.chess.chessapi.repository.UserRoomCandidateRepository
+import ru.chess.chessapi.websocket.message.enums.SideType
 import java.time.LocalDateTime
 import java.util.*
 
@@ -16,16 +17,21 @@ class UserRoomCandidateService(
         const val BATCH_SIZE = 30
     }
 
-    fun createUserRoomCandidate(user: UserEntity): UserRoomCandidateEntity {
-        val userRoomCandidateOptional = userRoomCandidateRepository.findByUser(user)
-        if (userRoomCandidateOptional.isPresent) {
+    fun findByUser(user: UserEntity): UserRoomCandidateEntity? {
+        return userRoomCandidateRepository.findByUser(user)
+    }
+
+    fun createUserRoomCandidate(user: UserEntity, sideType: SideType): UserRoomCandidateEntity {
+        val userRoomCandidate = userRoomCandidateRepository.findByUser(user)
+        if (userRoomCandidate != null) {
             val currentLocalDateTime = LocalDateTime.now()
-            with(userRoomCandidateOptional.get()) {
+            with(userRoomCandidate) {
                 if (this.actualUntil!! > currentLocalDateTime) {
                     userRoomCandidateRepository.delete(this)
                     return userRoomCandidateRepository.save(
                         UserRoomCandidateEntity(
                             user = user,
+                            userSide = sideType,
                             createdAt = LocalDateTime.now()
                         )
                     )
@@ -36,6 +42,7 @@ class UserRoomCandidateService(
             return userRoomCandidateRepository.save(
                 UserRoomCandidateEntity(
                     user = user,
+                    userSide = sideType,
                     createdAt = LocalDateTime.now()
                 )
             )
