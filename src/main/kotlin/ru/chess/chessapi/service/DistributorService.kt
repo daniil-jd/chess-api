@@ -4,35 +4,67 @@ import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.RoomEntity
-import ru.chess.chessapi.websocket.message.MatchFinishedMessageDto
-import ru.chess.chessapi.websocket.message.MoveMessageDto
-import ru.chess.chessapi.websocket.message.RequestMessageDto
-import ru.chess.chessapi.websocket.message.enums.SideType
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
 import ru.chess.chessapi.exception.RoomDoesNotExistException
-import ru.chess.chessapi.exception.UserDoesNotExistException
-import ru.chess.chessapi.exception.UsernameIsEmptyException
+import ru.chess.chessapi.web.dto.request.RoomHistorySaveRequest
+import ru.chess.chessapi.websocket.message.RequestForRoomMessageDto
+import ru.chess.chessapi.websocket.message.enums.FinishType
+import ru.chess.chessapi.websocket.message.enums.SideType
 import java.util.*
 
 @Service
 class DistributorService(
     private val userService: UserService,
     private val userRoomCandidateService: UserRoomCandidateService,
-    private val roomService: RoomService,
-    private val sideService: SideService
+    private val roomService: RoomService
 ) {
 
     private val logger = KotlinLogging.logger {}
 
     @Transactional
-    fun createUserRoomCandidate(requestMessageDto: RequestMessageDto): UserRoomCandidateEntity {
+    fun createUserRoomCandidate(requestMessageDto: RequestForRoomMessageDto): UserRoomCandidateEntity {
         with(requestMessageDto) {
-            if (user == null) {
-                throw UsernameIsEmptyException()
+            val user = searchOrCreateUserBySignatureAndId(
+                signature = signature, backendUserId = backendUserId, username = username
+            )
+
+            return userRoomCandidateService.createUserRoomCandidate(user, side)
+        }
+    }
+
+    private fun searchOrCreateUserBySignatureAndId(
+        signature: String?,
+        backendUserId: UUID?,
+        username: String
+    ): UserEntity {
+        return when {
+            // not authorized in yandex, first time
+            signature == null && backendUserId == null -> {
+                // create
+                userService.createUser(username = username, signature = null)
             }
-            val userFromDb = userService.findUserByName(user) ?: throw UserDoesNotExistException(user)
-            return userRoomCandidateService.createUserRoomCandidate(userFromDb, side)
+
+            // not authorized in yandex, not first time
+            signature == null && backendUserId != null -> {
+                // search or else create
+                userService.findById(backendUserId) ?: userService.createUser(username = username, signature = null)
+            }
+
+            // authorized in yandex, first time
+            signature != null && backendUserId == null -> {
+                // create with signature
+                userService.createUser(username = username, signature = signature)
+            }
+
+            // authorized in yandex, not first time
+            // signature != null && backendUserId != null
+            else -> {
+                // search or else create
+                userService.findBySignature(signature!!) ?:
+                userService.findById(backendUserId!!) ?:
+                userService.createUser(username = username, signature = signature)
+            }
         }
     }
 
@@ -66,9 +98,9 @@ class DistributorService(
 
     @Transactional
     fun updateRoomHistoryWhenMatchIsOver(
-        roomId: UUID, sideOfMove: SideType, finishType: String
+        roomId: UUID, sideOfMove: SideType, finishType: FinishType
     ): RoomEntity {
-        val room = findRoomAndAddHistory(roomId, finishType).also {
+        val room = findRoomAndAddHistory(roomId, finishType.toString()).also {
             it.winnerSide = sideOfMove
             it.winType = finishType
         }
@@ -91,10 +123,49 @@ class DistributorService(
 
     @Transactional
     fun updateRoomHistoryAndReturnAnotherUserWhenMatchIsOver(
-        roomId: UUID, winnerSide: SideType, finishType: String
+        roomId: UUID, winnerSide: SideType, finishType: FinishType
     ): UserEntity {
         val room = updateRoomHistoryWhenMatchIsOver(roomId, winnerSide, finishType)
         return findAnotherUser(room, winnerSide)
     }
 
+    @Transactional
+    fun saveHistory(request: RoomHistorySaveRequest) {
+        with(request) {
+            val user = searchOrCreateUserBySignatureAndId(
+                signature = signature, backendUserId = backendUserId, username = username
+            )
+            if (userSide == SideType.WHITE) {
+                val blackBot = userService.findBotByColor(isWhite = false)
+
+                roomService.createRoomWithHistory(
+                    user1 = user,
+                    user1SideType = SideType.WHITE,
+                    user1Name = username,
+                    user2 = blackBot,
+                    user2SideType = SideType.BLACK,
+                    user2Name = opponentName,
+                    gameType = opponentType,
+                    history = history,
+                    winnerSide = winnerSide,
+                    winType = finishType
+                )
+            } else {
+                val whiteBot = userService.findBotByColor(isWhite = true)
+
+                roomService.createRoomWithHistory(
+                    user1 = whiteBot,
+                    user1SideType = SideType.WHITE,
+                    user1Name = opponentName,
+                    user2 = user,
+                    user2SideType = SideType.BLACK,
+                    user2Name = username,
+                    gameType = opponentType,
+                    history = history,
+                    winnerSide = winnerSide,
+                    winType = finishType
+                )
+            }
+        }
+    }
 }

@@ -2,9 +2,12 @@ package ru.chess.chessapi.websocket.message
 
 import ru.chess.chessapi.websocket.message.enums.MessageType
 import ru.chess.chessapi.websocket.message.enums.SideType
+import java.util.UUID
 
-data class RequestMessageDto(
+data class RequestForRoomMessageDto(
     val messageType: MessageType,
-    val user: String?,
+    val signature: String?,
+    val backendUserId: UUID?,
+    val username: String,
     val side: SideType
 ): MessageDto

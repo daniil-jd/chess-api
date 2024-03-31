@@ -2,7 +2,7 @@
                    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
                    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
 
-    <changeSet id="create-users_2-rooms_2-user_room_candidates_2-tables" author="daniil.zharnov">
+    <changeSet id="create-v_2-tables" author="daniil.zharnov">
         <!--chess_users_2-->
         <createTable tableName="chess_users_2">
             <column name="id" type="uuid">
@@ -14,12 +14,16 @@
             <column name="signature" type="text">
                 <constraints nullable="true"/>
             </column>
-            <column name="serial_number" type="bigint" autoIncrement="true" incrementBy="1" startWith="0">
+            <column name="serial_number" type="bigint" autoIncrement="true" incrementBy="1" startWith="1">
                 <constraints nullable="false"/>
             </column>
-            <column name="rating" type="bigint" defaultValueNumeric="0">
+            <column name="rating" type="bigint" defaultValueNumeric="1">
                 <constraints nullable="false"/>
             </column>
+            <column name="is_bot" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+
             <column name="created_at" type="timestamp without time zone" defaultValueComputed="timezone('UTC', now())::timestamp without time zone">
                 <constraints nullable="false"/>
             </column>
@@ -29,8 +33,16 @@
                      indexName="idx_chess_users_2_username"
                      schemaName="public"
                      tableName="chess_users_2"
-                     unique="true">
+                     unique="false">
             <column descending="true" name="username"/>
+        </createIndex>
+
+        <createIndex clustered= "true"
+                     indexName="idx_chess_users_2_signature"
+                     schemaName="public"
+                     tableName="chess_users_2"
+                     unique="false">
+            <column descending="true" name="signature"/>
         </createIndex>
 
         <!--chess_rooms_2-->
@@ -44,10 +56,19 @@
             <column name="user_1_side" type="text">
                 <constraints nullable="false"/>
             </column>
+            <column name="user_1_name" type="text">
+                <constraints nullable="false"/>
+            </column>
             <column name="user_2" type="uuid">
                 <constraints nullable="false"/>
             </column>
             <column name="user_2_side" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_2_name" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="game_type" type="text">
                 <constraints nullable="false"/>
             </column>
             <column name="history" type="text">
@@ -64,25 +85,25 @@
             </column>
         </createTable>
 
-        <addForeignKeyConstraint  baseColumnNames="id"
-                                  baseTableName="chess_users_2"
+        <addForeignKeyConstraint  baseColumnNames="user_1"
+                                  baseTableName="chess_rooms_2"
                                   baseTableSchemaName="public"
                                   constraintName="fk_chess_users_2_chess_rooms_2_user_1"
                                   onDelete="NO ACTION"
                                   onUpdate="NO ACTION"
-                                  referencedColumnNames="user_1"
-                                  referencedTableName="chess_rooms_2"
+                                  referencedColumnNames="id"
+                                  referencedTableName="chess_users_2"
                                   referencedTableSchemaName="public"
                                   validate="true"/>
 
-        <addForeignKeyConstraint  baseColumnNames="id"
-                                  baseTableName="chess_users_2"
+        <addForeignKeyConstraint  baseColumnNames="user_2"
+                                  baseTableName="chess_rooms_2"
                                   baseTableSchemaName="public"
                                   constraintName="fk_chess_users_2_chess_rooms_2_user_2"
                                   onDelete="NO ACTION"
                                   onUpdate="NO ACTION"
-                                  referencedColumnNames="user_2"
-                                  referencedTableName="chess_rooms_2"
+                                  referencedColumnNames="id"
+                                  referencedTableName="chess_users_2"
                                   referencedTableSchemaName="public"
                                   validate="true"/>
 
@@ -126,14 +147,14 @@
             </column>
         </createTable>
 
-        <addForeignKeyConstraint  baseColumnNames="id"
-                                  baseTableName="chess_users_2"
+        <addForeignKeyConstraint  baseColumnNames="user_id"
+                                  baseTableName="user_room_candidates_2"
                                   baseTableSchemaName="public"
                                   constraintName="fk_chess_users_2_user_room_candidates_2_user_id"
                                   onDelete="NO ACTION"
                                   onUpdate="NO ACTION"
-                                  referencedColumnNames="user_id"
-                                  referencedTableName="user_room_candidates_2"
+                                  referencedColumnNames="id"
+                                  referencedTableName="chess_users_2"
                                   referencedTableSchemaName="public"
                                   validate="true"/>
 
@@ -142,7 +163,7 @@
                      schemaName="public"
                      tableName="user_room_candidates_2"
                      unique="false">
-            <column descending="true" name="user_black"/>
+            <column descending="true" name="user_id"/>
         </createIndex>
 
     </changeSet>

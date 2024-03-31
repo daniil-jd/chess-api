@@ -7,6 +7,7 @@ import java.util.UUID
 
 data class MoveMessageDto(
     val messageType: MessageType,
+    val backendUserId: UUID,
     val room: UUID,
     val sideOfMove: SideType,
     val move: String,

@@ -14,13 +14,14 @@ data class UserRoomCandidateEntity(
     @OneToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     val user: UserEntity,
+    @Enumerated(EnumType.STRING)
     val userSide: SideType,
     val createdAt: LocalDateTime,
-    var actualUntil: LocalDateTime? = null
+    var activeUntil: LocalDateTime? = null
 ) {
     @PrePersist
     fun prePersist() {
         id = UUID.randomUUID()
-        actualUntil = createdAt.plusSeconds(CANDIDATE_MAX_TIME_TO_LIVE)
+        activeUntil = createdAt.plusSeconds(CANDIDATE_MAX_TIME_TO_LIVE)
     }
 }

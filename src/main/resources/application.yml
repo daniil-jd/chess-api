@@ -13,7 +13,7 @@ server:
 
 spring:
   application:
-    name: gold-adapter-api
+    name: chess-api
   datasource:
     url: jdbc:postgresql://${POSTGRESQL_SERVER}/${POSTGRESQL_DATABASE}
     username: ${POSTGRESQL_USERNAME}

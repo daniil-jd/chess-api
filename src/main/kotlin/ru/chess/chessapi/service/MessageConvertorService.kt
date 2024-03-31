@@ -19,9 +19,9 @@ class MessageConvertorService(
             getRequestForRoomCancelMessage(message)
     }
 
-    private fun getRequestForRoomMessage(message: TextMessage): RequestMessageDto? {
+    private fun getRequestForRoomMessage(message: TextMessage): RequestForRoomMessageDto? {
         return try {
-            mapper.readValue<RequestMessageDto>(message.payload)
+            mapper.readValue<RequestForRoomMessageDto>(message.payload)
         } catch (ex: Exception) {
             null
         }

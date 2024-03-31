@@ -1,23 +1,15 @@
 package ru.chess.chessapi.service
 
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.exception.UserAlreadyExistException
-import ru.chess.chessapi.repository.RegistrationTokenRepository
-import ru.chess.chessapi.service.security.AuthenticationService
-import ru.chess.chessapi.service.security.DefaultMailService
 import ru.chess.chessapi.web.dto.request.RegistrationRequest
 import ru.chess.chessapi.web.dto.response.RegistrationResponse
 
 @Service
 class RegistrationService(
-    private val registrationTokenRepository: RegistrationTokenRepository,
-    private val authenticationService: AuthenticationService,
-    private val userService: UserService,
-    private val passwordEncoder: PasswordEncoder,
-    private val defaultMailService: DefaultMailService
+    private val userService: UserService
 ) {
 
     @Transactional

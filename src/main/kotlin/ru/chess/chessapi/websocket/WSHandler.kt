@@ -36,14 +36,14 @@ class WSHandler(
 
             // todo: log before this block
             when (val message = messageConvertorService.convertMessageDtoFromTextMessage(webSocketMessage)) {
-                is RequestMessageDto -> {
+                is RequestForRoomMessageDto -> {
                     logger.info { "received message type: ${message.messageType}, message body: $message" }
                     val userRoomCandidate = distributorService.createUserRoomCandidate(message)
                     logger.info {
                         "created user-room-candidate, " +
                             "id: ${userRoomCandidate.id}, " +
                             "user: ${userRoomCandidate.user}, " +
-                            "actual until: ${userRoomCandidate.actualUntil}"
+                            "actual until: ${userRoomCandidate.activeUntil}"
                     }
                     putDefaultPrincipalToSessionIfNotExist(session, userRoomCandidate.user.id!!)
                 }
@@ -56,6 +56,7 @@ class WSHandler(
                     logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
                     val messageToAnotherUser = MoveMessageDto(
                         messageType = MessageType.CHESS_MOVE,
+                        backendUserId = userToSend.id!!,
                         room = message.room,
                         sideOfMove = message.sideOfMove,
                         move = message.move,
@@ -119,6 +120,7 @@ class WSHandler(
                 if (userId == user1.id) {
                     val message = RoomFoundMessageDto(
                         messageType = MessageType.ROOM_FOUND,
+                        backendUserId = userId,
                         room = room.id!!,
                         opponentName = user2.username,
                         playerSide = user1Side
@@ -127,6 +129,7 @@ class WSHandler(
                 } else if (userId == user2.id) {
                     val message = RoomFoundMessageDto(
                         messageType = MessageType.ROOM_FOUND,
+                        backendUserId = userId,
                         room = room.id!!,
                         opponentName = user1.username,
                         playerSide = user2Side

@@ -7,7 +7,6 @@ import ru.chess.chessapi.entity.UserRoomCandidateEntity
 import ru.chess.chessapi.repository.UserRoomCandidateRepository
 import ru.chess.chessapi.websocket.message.enums.SideType
 import java.time.LocalDateTime
-import java.util.*
 
 @Service
 class UserRoomCandidateService(
@@ -26,7 +25,7 @@ class UserRoomCandidateService(
         if (userRoomCandidate != null) {
             val currentLocalDateTime = LocalDateTime.now()
             with(userRoomCandidate) {
-                if (this.actualUntil!! > currentLocalDateTime) {
+                if (this.activeUntil!! > currentLocalDateTime) {
                     userRoomCandidateRepository.delete(this)
                     return userRoomCandidateRepository.save(
                         UserRoomCandidateEntity(
@@ -53,21 +52,21 @@ class UserRoomCandidateService(
         userRoomCandidateRepository.deleteAll(candidates)
     }
 
-    fun findActualUserRoomCandidates(): MutableList<UserRoomCandidateEntity> {
+    fun findActiveUserRoomCandidates(): MutableList<UserRoomCandidateEntity> {
         val currentTime = LocalDateTime.now()
-        var slice = userRoomCandidateRepository.findAllByActualUntilIsGreaterThanEqual(
+        var slice = userRoomCandidateRepository.findAllByActiveUntilIsGreaterThanEqual(
             currentTime, PageRequest.of(0, BATCH_SIZE)
         )
         val result = slice.content
         while (slice.hasNext()) {
-            slice = userRoomCandidateRepository.findAllByActualUntilIsGreaterThanEqual(currentTime, slice.nextPageable())
+            slice = userRoomCandidateRepository.findAllByActiveUntilIsGreaterThanEqual(currentTime, slice.nextPageable())
             result.addAll(slice.content)
         }
         return result.toMutableList()
     }
 
     fun deleteAllOverdue(): Int {
-        return userRoomCandidateRepository.deleteAllByActualUntilGreaterThan(LocalDateTime.now())
+        return userRoomCandidateRepository.deleteAllByActiveUntilGreaterThan(LocalDateTime.now())
     }
 
     fun deleteByUser(user: UserEntity): Int {

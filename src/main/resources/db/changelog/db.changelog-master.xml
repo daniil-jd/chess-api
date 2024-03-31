@@ -6,6 +6,6 @@
 <!--    <include file="V1.2__create_shedlock_table.xml" relativeToChangelogFile="true"/>-->
     <include file="V1.0__create-first-tables.xml" relativeToChangelogFile="true"/>
     <include file="V1.1__create_room_and_user_room_candidate_tables.xml" relativeToChangelogFile="true"/>
-    <include file="V1.3__create-users_2-rooms_2-user_room_candidates_2-tables.xml" relativeToChangelogFile="true"/>
+    <include file="V1.3__create-v_2-tables.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>
