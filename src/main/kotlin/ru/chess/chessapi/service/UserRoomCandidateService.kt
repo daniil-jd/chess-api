@@ -16,10 +16,6 @@ class UserRoomCandidateService(
         const val BATCH_SIZE = 30
     }
 
-    fun findByUser(user: UserEntity): UserRoomCandidateEntity? {
-        return userRoomCandidateRepository.findByUser(user)
-    }
-
     fun createUserRoomCandidate(user: UserEntity, sideType: SideType): UserRoomCandidateEntity {
         val userRoomCandidate = userRoomCandidateRepository.findByUser(user)
         if (userRoomCandidate != null) {

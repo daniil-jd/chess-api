@@ -10,6 +10,7 @@ import ru.chess.chessapi.exception.RoomDoesNotExistException
 import ru.chess.chessapi.web.dto.request.RoomHistorySaveRequest
 import ru.chess.chessapi.websocket.message.RequestForRoomMessageDto
 import ru.chess.chessapi.websocket.message.enums.FinishType
+import ru.chess.chessapi.websocket.message.enums.PromotionType
 import ru.chess.chessapi.websocket.message.enums.SideType
 import java.util.*
 
@@ -54,6 +55,7 @@ class DistributorService(
             // authorized in yandex, first time
             signature != null && backendUserId == null -> {
                 // create with signature
+                userService.findBySignature(signature) ?:
                 userService.createUser(username = username, signature = signature)
             }
 
@@ -79,20 +81,20 @@ class DistributorService(
         }
     }
 
-    private fun findRoomAndAddHistory(roomId: UUID, move: String): RoomEntity {
+    private fun findRoomAndAddHistory(roomId: UUID, move: String, promotionType: PromotionType? = null): RoomEntity {
         val room = roomService.findRoomById(roomId) ?: throw RoomDoesNotExistException(roomId)
         val sb = if (room.history == null) {
             StringBuilder(move)
         } else {
-            StringBuilder(room.history).also { it.append(" ").append(move) }
+            StringBuilder(room.history).also { it.append(" ").append(move).append(promotionType?.toHistoryPart()) }
         }
         room.history = sb.toString()
         return room
     }
 
     @Transactional
-    fun updateRoomHistory(roomId: UUID, move: String): RoomEntity {
-        val room = findRoomAndAddHistory(roomId, move)
+    fun updateRoomHistory(roomId: UUID, move: String, promotionType: PromotionType?): RoomEntity {
+        val room = findRoomAndAddHistory(roomId, move, promotionType)
         return roomService.save(room)
     }
 
@@ -116,8 +118,8 @@ class DistributorService(
     }
 
     @Transactional
-    fun updateRoomHistoryAndReturnAnotherUser(roomId: UUID, sideOfMove: SideType, move: String): UserEntity {
-        val room = updateRoomHistory(roomId, move)
+    fun updateRoomHistoryAndReturnAnotherUser(roomId: UUID, sideOfMove: SideType, move: String, promotionType: PromotionType?): UserEntity {
+        val room = updateRoomHistory(roomId, move, promotionType)
         return findAnotherUser(room, sideOfMove)
     }
 

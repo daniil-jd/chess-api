@@ -5,11 +5,6 @@ server:
   tomcat:
     mbeanregistry:
       enabled: true # enable tomcat metrics
-  ssl:
-    key-store: classpath:keystore/chess-forms-games-cert.p12  # path inside docker container
-    key-store-type: PKCS12                                    # keystore type
-    key-alias: chess-forms-games-cert                         # keystore alias
-    key-store-password: 123456                                # keystore password
 
 spring:
   application:

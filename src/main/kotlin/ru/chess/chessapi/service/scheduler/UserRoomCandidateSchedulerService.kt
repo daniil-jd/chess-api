@@ -13,7 +13,6 @@ import ru.chess.chessapi.entity.UserRoomCandidateEntity
 import ru.chess.chessapi.service.RoomService
 import ru.chess.chessapi.service.SideService
 import ru.chess.chessapi.service.UserRoomCandidateService
-import ru.chess.chessapi.service.UserService
 import ru.chess.chessapi.websocket.WSHandler
 import java.io.Serializable
 import java.util.*
@@ -21,7 +20,6 @@ import java.util.*
 @Service
 class UserRoomCandidateSchedulerService(
     private val userRoomCandidateService: UserRoomCandidateService,
-    private val userService: UserService,
     private val roomService: RoomService,
     private val sideService: SideService,
     private val wsHandler: WSHandler
@@ -37,7 +35,7 @@ class UserRoomCandidateSchedulerService(
         fixedRateString = "PT15S",
         initialDelayString = "PT10S"
     )
-    @SchedulerLock(name = "UserRoomCandidateSchedulerService", lockAtMostFor = SCHEDULER_LOCK_INTERVAL)
+    @SchedulerLock(name = "UserRoomCandidateSchedulerService", lockAtMostFor = SCHEDULER_LOCK_INTERVAL) //todo создавать комнату, когда создается кандидат сразу
     fun searchCandidates() {
         LockAssert.assertLocked()
         val candidates = userRoomCandidateService.findActiveUserRoomCandidates()
@@ -81,20 +79,20 @@ class UserRoomCandidateSchedulerService(
                     SideType.RANDOM, SideType.BLACK -> {
                         roomService.createRoomForOnlineMatch(
                             user1 = user1,
-                            user1SideType = side1,
+                            user1SideType = SideType.WHITE,
                             user1Name = user1.username,
                             user2 = user2,
-                            user2SideType = side2,
+                            user2SideType = SideType.BLACK,
                             user2Name = user2.username
                         )
                     }
                     SideType.WHITE -> {
                         roomService.createRoomForOnlineMatch(
                             user1 = user2,
-                            user1SideType = side2,
+                            user1SideType = SideType.BLACK,
                             user1Name = user2.username,
                             user2 = user1,
-                            user2SideType = side1,
+                            user2SideType = SideType.WHITE,
                             user2Name = user1.username
                         )
                     }
@@ -105,10 +103,10 @@ class UserRoomCandidateSchedulerService(
                     SideType.RANDOM, SideType.BLACK -> {
                         roomService.createRoomForOnlineMatch(
                             user1 = user1,
-                            user1SideType = side1,
+                            user1SideType = SideType.WHITE,
                             user1Name = user1.username,
                             user2 = user2,
-                            user2SideType = side2,
+                            user2SideType = SideType.BLACK,
                             user2Name = user2.username
                         )
                     }
@@ -127,10 +125,10 @@ class UserRoomCandidateSchedulerService(
                     SideType.RANDOM, SideType.WHITE -> {
                         roomService.createRoomForOnlineMatch(
                             user1 = user1,
-                            user1SideType = side1,
+                            user1SideType = SideType.BLACK,
                             user1Name = user1.username,
                             user2 = user2,
-                            user2SideType = side2,
+                            user2SideType = SideType.WHITE,
                             user2Name = user2.username
                         )
                     }

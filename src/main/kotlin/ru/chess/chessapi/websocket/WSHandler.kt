@@ -51,7 +51,7 @@ class WSHandler(
                 is MoveMessageDto -> {
                     logger.info { "received message type: ${message.messageType}, message body: $message" }
                     val userToSend = distributorService.updateRoomHistoryAndReturnAnotherUser(
-                        message.room, message.sideOfMove, message.move
+                        message.room, message.sideOfMove, message.move, message.promotionType
                     )
                     logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
                     val messageToAnotherUser = MoveMessageDto(
