@@ -35,6 +35,7 @@ class WSHandler(
             logger.info { "receive text message: ${webSocketMessage.payload}" }
 
             // todo: log before this block
+            // todo map dto only by TYPE!
             when (val message = messageConvertorService.convertMessageDtoFromTextMessage(webSocketMessage)) {
                 is RequestForRoomMessageDto -> {
                     logger.info { "received message type: ${message.messageType}, message body: $message" }

@@ -86,7 +86,7 @@ class DistributorService(
         val sb = if (room.history == null) {
             StringBuilder(move)
         } else {
-            StringBuilder(room.history).also { it.append(" ").append(move).append(promotionType?.toHistoryPart()) }
+            StringBuilder(room.history).also { it.append(" ").append(move).append(promotionType?.toHistoryPart() ?: "") } // todo fix null to history
         }
         room.history = sb.toString()
         return room
