@@ -3,6 +3,7 @@ package ru.chess.chessapi.websocket
 import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.socket.*
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
@@ -30,6 +31,7 @@ class WSHandler(
         sessions[session.id] = session
     }
 
+    @Transactional
     override fun handleMessage(session: WebSocketSession, webSocketMessage: WebSocketMessage<*>) {
         if (webSocketMessage is TextMessage) {
             logger.info { "receive text message: ${webSocketMessage.payload}" }
@@ -47,6 +49,12 @@ class WSHandler(
                             "actual until: ${userRoomCandidate.activeUntil}"
                     }
                     putDefaultPrincipalToSessionIfNotExist(session, userRoomCandidate.user.id!!)
+
+                    // create room if it possible
+                    val rooms = distributorService.searchCandidatesAndCreateRooms()
+                    rooms.forEach {
+                        sendRoomCreatedMessage(it)
+                    }
                 }
 
                 is MoveMessageDto -> {
@@ -82,10 +90,8 @@ class WSHandler(
                         winnerSide = message.winnerSide,
                         finishType = message.finishType
                     )
-                    userIdToSessions.forEach { (userId, wsSession) ->
-                        if (userId == userToSend.id) {
-                            sendMessageToAnotherUser(messageToAnotherUser, userToSend, wsSession)
-                        }
+                    userIdToSessions[userToSend.id]?.let {
+                        sendMessageToAnotherUser(messageToAnotherUser, userToSend, it)
                     }
                 }
 
@@ -114,7 +120,6 @@ class WSHandler(
         val user1Side = room.user1Side
         val user2 = room.user2
         val user2Side = room.user2Side
-
 
         userIdToSessions.forEach { (userId, wsSession) ->
             try {
