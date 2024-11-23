@@ -6,11 +6,9 @@ import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
-import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
@@ -37,12 +35,12 @@ class DefaultSecurityConfiguration(
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http
             .csrf().disable()
-            .cors()
+            .cors().disable()
 //            .and()
 //            .addFilterAfter(tokenFilter, BasicAuthenticationFilter::class.java)
 //            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 
-            .and()
+//            .and()
             .authorizeRequests()
             .antMatchers(WEBSOCKET_API).anonymous()
 
@@ -52,6 +50,7 @@ class DefaultSecurityConfiguration(
             .antMatchers(HttpMethod.POST, RECOVERY_API).anonymous()
             .antMatchers(HttpMethod.POST, RECOVERY_CONFIRMATION_API_WITH_TOKEN).anonymous()
             .antMatchers(HttpMethod.GET, "/*").anonymous()
+            .antMatchers(HttpMethod.POST, "/*").anonymous()
 //            .antMatchers(USERS_API).authenticated()
 //            .antMatchers(ROOMS_API).authenticated()
 //            .antMatchers(PROFILE_API).authenticated()

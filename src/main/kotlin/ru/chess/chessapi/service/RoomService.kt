@@ -45,6 +45,7 @@ class RoomService(
             )
         )
     }
+
     @Transactional
     fun createRoomWithHistory(
         user1: UserEntity,
@@ -81,6 +82,10 @@ class RoomService(
 
     fun findRoomById(roomId: UUID): RoomEntity? {
         return roomRepository.findByIdOrNull(roomId)
+    }
+
+    fun findLatest20RoomsByUser(user: UserEntity): List<RoomEntity> {
+        return roomRepository.findLatest20RoomsByUser(user).sortedBy { it.createdAt }
     }
 
     fun save(room: RoomEntity): RoomEntity {

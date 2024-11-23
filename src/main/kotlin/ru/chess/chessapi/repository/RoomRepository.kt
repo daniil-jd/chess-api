@@ -27,4 +27,16 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
         """
     )
     fun findAllByUser1AndUser2(userId1: UUID, userId2: UUID): List<RoomEntity>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            select re.* from public.chess_rooms_2 re
+            where re.user_1 = (:user) and re.winner_side is not null
+                or re.user_2 = (:user) and re.winner_side is not null
+            order by re.created_at desc
+            limit 20
+        """
+    )
+    fun findLatest20RoomsByUser(user: UserEntity): List<RoomEntity>
 }

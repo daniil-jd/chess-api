@@ -8,6 +8,7 @@ import java.util.*
 data class RoomHistorySaveRequest(
     val backendUserId: UUID?,
     val signature: String?,
+    val room: UUID?,
     val userSide: SideType,
     val username: String,
     val opponentName: String,

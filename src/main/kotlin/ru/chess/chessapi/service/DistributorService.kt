@@ -7,8 +7,11 @@ import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
 import ru.chess.chessapi.exception.RoomDoesNotExistException
+import ru.chess.chessapi.exception.UserDoesNotExistException
 import ru.chess.chessapi.model.CandidatePair
 import ru.chess.chessapi.web.dto.request.RoomHistorySaveRequest
+import ru.chess.chessapi.web.dto.response.RoomHistorySaveResponse
+import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
 import ru.chess.chessapi.websocket.message.RequestForRoomMessageDto
 import ru.chess.chessapi.websocket.message.enums.FinishType
 import ru.chess.chessapi.websocket.message.enums.PromotionType
@@ -57,17 +60,16 @@ class DistributorService(
             // authorized in yandex, first time
             filteredSignature != null && backendUserId == null -> {
                 // create with signature
-                userService.findBySignature(filteredSignature) ?:
-                userService.createUser(username = username, signature = filteredSignature)
+                userService.findBySignature(filteredSignature)
+                    ?: userService.createUser(username = username, signature = filteredSignature)
             }
 
             // authorized in yandex, not first time
             // signature != null && backendUserId != null
             else -> {
                 // search or else create
-                userService.findBySignature(filteredSignature!!) ?:
-                userService.findById(backendUserId!!) ?:
-                userService.createUser(username = username, signature = filteredSignature)
+                userService.findBySignature(filteredSignature!!) ?: userService.findById(backendUserId!!)
+                ?: userService.createUser(username = username, signature = filteredSignature)
             }
         }
     }
@@ -83,7 +85,7 @@ class DistributorService(
                 for (j in i + 1 until candidates.size) {
                     val sideB = candidates[j].userSide
                     if ((sideB == findOppositeSide(sideA) || sideB == SideType.RANDOM) &&
-                            !(temp.contains(candidates[j]) || temp.contains(candidates[i]))
+                        !(temp.contains(candidates[j]) || temp.contains(candidates[i]))
                     ) {
                         pairsToCreate.add(CandidatePair(candidates[j], candidates[i]))
                         temp.add(candidates[j])
@@ -122,29 +124,29 @@ class DistributorService(
     }
 
     fun createRoomWithCandidates(
-            user1: UserEntity, side1: SideType, user2: UserEntity, side2: SideType
+        user1: UserEntity, side1: SideType, user2: UserEntity, side2: SideType
     ): RoomEntity {
         return when (side1) {
             SideType.RANDOM -> {
                 when (side2) {
                     SideType.RANDOM, SideType.BLACK -> {
                         roomService.createRoomForOnlineMatch(
-                                user1 = user1,
-                                user1SideType = SideType.WHITE,
-                                user1Name = user1.username,
-                                user2 = user2,
-                                user2SideType = SideType.BLACK,
-                                user2Name = user2.username
+                            user1 = user1,
+                            user1SideType = SideType.WHITE,
+                            user1Name = user1.username,
+                            user2 = user2,
+                            user2SideType = SideType.BLACK,
+                            user2Name = user2.username
                         )
                     }
                     SideType.WHITE -> {
                         roomService.createRoomForOnlineMatch(
-                                user1 = user2,
-                                user1SideType = SideType.WHITE,
-                                user1Name = user2.username,
-                                user2 = user1,
-                                user2SideType = SideType.BLACK,
-                                user2Name = user1.username
+                            user1 = user2,
+                            user1SideType = SideType.WHITE,
+                            user1Name = user2.username,
+                            user2 = user1,
+                            user2SideType = SideType.BLACK,
+                            user2Name = user1.username
                         )
                     }
                 }
@@ -153,12 +155,12 @@ class DistributorService(
                 when (side2) {
                     SideType.RANDOM, SideType.BLACK -> {
                         roomService.createRoomForOnlineMatch(
-                                user1 = user1,
-                                user1SideType = SideType.WHITE,
-                                user1Name = user1.username,
-                                user2 = user2,
-                                user2SideType = SideType.BLACK,
-                                user2Name = user2.username
+                            user1 = user1,
+                            user1SideType = SideType.WHITE,
+                            user1Name = user1.username,
+                            user2 = user2,
+                            user2SideType = SideType.BLACK,
+                            user2Name = user2.username
                         )
                     }
                     else -> {
@@ -166,7 +168,7 @@ class DistributorService(
                             "User 1 is white and user 2 is white, something go wrong. User1: $user1, user2: $user2"
                         }
                         throw Exception(
-                                "User 1 is white and user 2 is white, something go wrong. User1: $user1, user2: $user2"
+                            "User 1 is white and user 2 is white, something go wrong. User1: $user1, user2: $user2"
                         )
                     }
                 }
@@ -175,12 +177,12 @@ class DistributorService(
                 when (side2) {
                     SideType.RANDOM, SideType.WHITE -> {
                         roomService.createRoomForOnlineMatch(
-                                user1 = user1,
-                                user1SideType = SideType.BLACK,
-                                user1Name = user1.username,
-                                user2 = user2,
-                                user2SideType = SideType.WHITE,
-                                user2Name = user2.username
+                            user1 = user1,
+                            user1SideType = SideType.BLACK,
+                            user1Name = user1.username,
+                            user2 = user2,
+                            user2SideType = SideType.WHITE,
+                            user2Name = user2.username
                         )
                     }
                     else -> {
@@ -188,7 +190,7 @@ class DistributorService(
                             "User 1 is black and user 2 is black, something go wrong. User1: $user1, user2: $user2"
                         }
                         throw Exception(
-                                "User 1 is black and user 2 is black, something go wrong. User1: $user1, user2: $user2"
+                            "User 1 is black and user 2 is black, something go wrong. User1: $user1, user2: $user2"
                         )
                     }
                 }
@@ -213,7 +215,9 @@ class DistributorService(
         val sb = if (room.history == null) {
             StringBuilder(move)
         } else {
-            StringBuilder(room.history).also { it.append(" ").append(move).append(promotionType?.toHistoryPart() ?: "") } // todo fix null to history
+            StringBuilder(room.history).also {
+                it.append(" ").append(move).append(promotionType?.toHistoryPart() ?: "")
+            } // todo fix null to history
         }
         room.history = sb.toString()
         return room
@@ -259,7 +263,61 @@ class DistributorService(
     }
 
     @Transactional
-    fun saveHistory(request: RoomHistorySaveRequest) {
+    fun saveHistory(request: RoomHistorySaveRequest): RoomHistorySaveResponse {
+        with(request) {
+            return if (room != null) {
+                // room is not null -> room & user SHOULD exist already
+                val room = roomService.findRoomById(room) ?: throw RoomDoesNotExistException(room)
+                room.history = history
+                roomService.save(room)
+
+                RoomHistorySaveResponse(backendUserId = backendUserId!!)
+            } else {
+                // room is null -> room doesn't exist, this is user vs bot
+                saveHistoryForUserAndBot(this)
+            }
+        }
+    }
+
+    fun getLatest20UserHistory(backendUserId: String?, signature: String?): RoomHistorySearchResponse {
+        return when {
+            // backendUserId is not null, not blank
+            !backendUserId.isNullOrBlank() -> {
+                val userId = try {
+                    UUID.fromString(backendUserId)
+                } catch (ex: Exception) {
+                    logger.error { "Can't parse UUID from backendUserId: $backendUserId" }
+                    throw UserDoesNotExistException(backendUserId)
+                }
+                val user = userService.findById(userId) ?: throw UserDoesNotExistException(backendUserId)
+                val rooms = roomService.findLatest20RoomsByUser(user)
+
+                RoomHistorySearchResponse(
+                    backendUserId = userId,
+                    signature = signature,
+                    matchesHistory = rooms.mapIndexed { index, roomEntity ->  roomEntity.toMatchHistory(user, index) }
+                )
+            }
+            // only signature is present and not null, not blank
+            backendUserId.isNullOrBlank() && !signature.isNullOrBlank() -> {
+                val user = userService.findBySignature(signature) ?: throw UserDoesNotExistException(signature)
+                val rooms = roomService.findLatest20RoomsByUser(user)
+
+                RoomHistorySearchResponse(
+                    backendUserId = user.id!!,
+                    signature = signature,
+                    matchesHistory = rooms.mapIndexed { index, roomEntity ->  roomEntity.toMatchHistory(user, index) }
+                )
+            }
+            // if backendUserId and signature are null or blank
+            else -> {
+                logger.error { "Can't find user and rooms by nullable backendUserid and signature" }
+                throw UserDoesNotExistException("nothing")
+            }
+        }
+    }
+
+    private fun saveHistoryForUserAndBot(request: RoomHistorySaveRequest): RoomHistorySaveResponse {
         with(request) {
             val user = searchOrCreateUserBySignatureAndId(
                 signature = signature, backendUserId = backendUserId, username = username
@@ -293,6 +351,42 @@ class DistributorService(
                     history = history,
                     winnerSide = winnerSide,
                     winType = finishType
+                )
+            }
+            return RoomHistorySaveResponse(user.id!!)
+        }
+    }
+
+    private fun RoomEntity.toMatchHistory(user: UserEntity, index: Int): RoomHistorySearchResponse.MatchHistory {
+        return when {
+            this.user1 == user -> {
+                // user1 = requested user, user2 = opponent
+                RoomHistorySearchResponse.MatchHistory(
+                    matchNumber = index + 1L,
+                    createdAt = createdAt!!,
+                    userSide = user1Side,
+                    userName = user1.username,
+                    opponentName = user2.username,
+                    opponentType = user2Side,
+                    gameType = gameType,
+                    history = history!!,
+                    winnerSide = winnerSide!!,
+                    finishType = winType!!
+                )
+            }
+            else -> {
+                // user2 = requested user, user1 = opponent
+                RoomHistorySearchResponse.MatchHistory(
+                    matchNumber = index + 1L,
+                    createdAt = createdAt!!,
+                    userSide = user2Side,
+                    userName = user2.username,
+                    opponentName = user1.username,
+                    opponentType = user1Side,
+                    gameType = gameType,
+                    history = history!!,
+                    winnerSide = winnerSide!!,
+                    finishType = winType!!
                 )
             }
         }
