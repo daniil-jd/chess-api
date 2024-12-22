@@ -1,4 +1,4 @@
-package ru.chess.chessapi.websocket
+package ru.chess.chessapi.web.websocket
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
@@ -9,8 +9,8 @@ import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.service.DistributorService
 import ru.chess.chessapi.service.MessageConvertorService
-import ru.chess.chessapi.websocket.message.*
-import ru.chess.chessapi.websocket.message.enums.MessageType
+import ru.chess.chessapi.web.websocket.message.*
+import ru.chess.chessapi.web.websocket.message.enums.MessageType
 import java.io.IOException
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap

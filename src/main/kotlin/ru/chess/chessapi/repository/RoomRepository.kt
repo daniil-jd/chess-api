@@ -39,4 +39,14 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
         """
     )
     fun findLatest20RoomsByUser(user: UserEntity): List<RoomEntity>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            select count(*) from public.chess_rooms_2 re
+            where re.user_1 = (:user) and re.winner_side is not null
+                or re.user_2 = (:user) and re.winner_side is not null
+        """
+    )
+    fun countByUser(user: UserEntity): Long
 }

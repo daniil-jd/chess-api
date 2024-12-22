@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
 import ru.chess.chessapi.repository.UserRoomCandidateRepository
-import ru.chess.chessapi.websocket.message.enums.SideType
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.time.LocalDateTime
 
 @Service

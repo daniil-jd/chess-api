@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.service.DistributorService
-import ru.chess.chessapi.websocket.WSHandler
+import ru.chess.chessapi.web.websocket.WSHandler
 
 @Service
 class UserRoomCandidateSchedulerService(

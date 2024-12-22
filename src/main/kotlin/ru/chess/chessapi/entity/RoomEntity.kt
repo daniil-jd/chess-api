@@ -1,9 +1,9 @@
 package ru.chess.chessapi.entity
 
 import org.hibernate.annotations.CreationTimestamp
-import ru.chess.chessapi.websocket.message.enums.FinishType
-import ru.chess.chessapi.websocket.message.enums.GameType
-import ru.chess.chessapi.websocket.message.enums.SideType
+import ru.chess.chessapi.web.websocket.message.enums.FinishType
+import ru.chess.chessapi.web.websocket.message.enums.GameType
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.time.LocalDateTime
 import java.util.*
 import javax.persistence.*

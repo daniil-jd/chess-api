@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.TextMessage
-import ru.chess.chessapi.websocket.message.*
+import ru.chess.chessapi.web.websocket.message.*
 
 @Service
 class MessageConvertorService(

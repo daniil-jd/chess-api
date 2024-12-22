@@ -6,9 +6,9 @@ import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.repository.RoomRepository
-import ru.chess.chessapi.websocket.message.enums.FinishType
-import ru.chess.chessapi.websocket.message.enums.GameType
-import ru.chess.chessapi.websocket.message.enums.SideType
+import ru.chess.chessapi.web.websocket.message.enums.FinishType
+import ru.chess.chessapi.web.websocket.message.enums.GameType
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.*
 
 @Service
@@ -85,7 +85,11 @@ class RoomService(
     }
 
     fun findLatest20RoomsByUser(user: UserEntity): List<RoomEntity> {
-        return roomRepository.findLatest20RoomsByUser(user).sortedBy { it.createdAt }
+        return roomRepository.findLatest20RoomsByUser(user)
+    }
+
+    fun getCountByUser(user: UserEntity): Long {
+        return roomRepository.countByUser(user)
     }
 
     fun save(room: RoomEntity): RoomEntity {

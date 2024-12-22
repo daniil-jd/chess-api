@@ -1,8 +1,8 @@
 package ru.chess.chessapi.web.dto.request
 
-import ru.chess.chessapi.websocket.message.enums.FinishType
-import ru.chess.chessapi.websocket.message.enums.GameType
-import ru.chess.chessapi.websocket.message.enums.SideType
+import ru.chess.chessapi.web.websocket.message.enums.FinishType
+import ru.chess.chessapi.web.websocket.message.enums.GameType
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.*
 
 data class RoomHistorySaveRequest(

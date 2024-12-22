@@ -1,7 +1,7 @@
-package ru.chess.chessapi.websocket.message
+package ru.chess.chessapi.web.websocket.message
 
-import ru.chess.chessapi.websocket.message.enums.MessageType
-import ru.chess.chessapi.websocket.message.enums.SideType
+import ru.chess.chessapi.web.websocket.message.enums.MessageType
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.UUID
 
 data class RequestForRoomMessageDto(

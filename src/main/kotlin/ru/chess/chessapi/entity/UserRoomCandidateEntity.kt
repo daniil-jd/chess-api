@@ -1,7 +1,7 @@
 package ru.chess.chessapi.entity
 
 import ru.chess.chessapi.utils.Constants.CANDIDATE_MAX_TIME_TO_LIVE
-import ru.chess.chessapi.websocket.message.enums.SideType
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.time.LocalDateTime
 import java.util.*
 import javax.persistence.*

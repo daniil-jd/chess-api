@@ -1,4 +1,4 @@
-package ru.chess.chessapi.websocket.message.enums
+package ru.chess.chessapi.web.websocket.message.enums
 
 enum class PromotionType {
     QUEEN, ROOK, BISHOP, KNIGHT;
