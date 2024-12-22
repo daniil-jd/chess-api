@@ -34,23 +34,25 @@ class DefaultSecurityConfiguration(
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            .cors { c -> c.configurationSource(corsConfigurationSource()) }
             .csrf().disable()
-            .cors().disable()
+            .authorizeRequests().anyRequest().anonymous()
+
 //            .and()
 //            .addFilterAfter(tokenFilter, BasicAuthenticationFilter::class.java)
 //            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 
 //            .and()
-            .authorizeRequests()
-            .antMatchers(WEBSOCKET_API).anonymous()
-
-            .antMatchers(HttpMethod.POST, AUTHENTICATION_API).anonymous()
-            .antMatchers(HttpMethod.POST, REGISTRATION_API).anonymous()
-            .antMatchers(HttpMethod.GET, REGISTRATION_CONFIRMATION_API).anonymous()
-            .antMatchers(HttpMethod.POST, RECOVERY_API).anonymous()
-            .antMatchers(HttpMethod.POST, RECOVERY_CONFIRMATION_API_WITH_TOKEN).anonymous()
-            .antMatchers(HttpMethod.GET, "/*").anonymous()
-            .antMatchers(HttpMethod.POST, "/*").anonymous()
+//            .authorizeRequests()
+//            .antMatchers(WEBSOCKET_API).anonymous()
+//
+//            .antMatchers(HttpMethod.POST, AUTHENTICATION_API).anonymous()
+//            .antMatchers(HttpMethod.POST, REGISTRATION_API).anonymous()
+//            .antMatchers(HttpMethod.GET, REGISTRATION_CONFIRMATION_API).anonymous()
+//            .antMatchers(HttpMethod.POST, RECOVERY_API).anonymous()
+//            .antMatchers(HttpMethod.POST, RECOVERY_CONFIRMATION_API_WITH_TOKEN).anonymous()
+//            .antMatchers(HttpMethod.GET, "/*").anonymous()
+//            .antMatchers(HttpMethod.POST, "/*").anonymous()
 //            .antMatchers(USERS_API).authenticated()
 //            .antMatchers(ROOMS_API).authenticated()
 //            .antMatchers(PROFILE_API).authenticated()
@@ -59,12 +61,18 @@ class DefaultSecurityConfiguration(
     }
 
     @Bean
-    fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
+    fun corsConfigurationSource(): CorsConfigurationSource {
+        val corsConf = CorsConfiguration()
+        corsConf.allowedOrigins = listOf("*")
+        corsConf.allowedMethods = listOf("*")
+        corsConf.allowedHeaders = listOf("*")
+        corsConf.exposedHeaders = listOf("Authorization", "Content-Type")
 
-    @Bean
-    fun corsConfigurationSoruce(): CorsConfigurationSource {
         val source = UrlBasedCorsConfigurationSource()
-        source.registerCorsConfiguration("/api/**", CorsConfiguration().applyPermitDefaultValues())
+        source.registerCorsConfiguration("/**", corsConf)
         return source
     }
+
+    @Bean
+    fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 }
