@@ -21,7 +21,7 @@ data class RoomHistorySearchResponse(
         val opponentType: SideType,
         val gameType: GameType,
         val history: String,
-        val winnerSide: SideType,
+        val winnerSide: SideType?,
         val finishType: FinishType
     )
 }

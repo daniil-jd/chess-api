@@ -56,7 +56,7 @@ class RoomService(
         user2Name: String,
         gameType: GameType,
         history: String,
-        winnerSide: SideType,
+        winnerSide: SideType?,
         winType: FinishType
     ): RoomEntity {
         val rooms = roomRepository.findAllByUser1AndUser2(user1.id!!, user2.id!!)

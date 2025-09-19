@@ -32,8 +32,7 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
         nativeQuery = true,
         value = """
             select re.* from public.chess_rooms_2 re
-            where re.user_1 = (:user) and re.winner_side is not null
-                or re.user_2 = (:user) and re.winner_side is not null
+            where re.win_type is not null and (re.user_1 = (:user) or re.user_2 = (:user))
             order by re.created_at desc
             limit 20
         """

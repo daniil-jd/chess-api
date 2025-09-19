@@ -14,6 +14,7 @@ data class RoomHistorySaveRequest(
     val opponentName: String,
     val opponentType: GameType,
     val history: String,
-    val winnerSide: SideType,
+    // can be "", null or valid value
+    val winnerSide: String? = null,
     val finishType: FinishType
 )

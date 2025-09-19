@@ -271,16 +271,23 @@ class DistributorService(
     @Transactional
     fun saveHistory(request: RoomHistorySaveRequest): RoomHistorySaveResponse {
         with(request) {
+            val winnerSideFixed = if (!winnerSide.isNullOrBlank()) SideType.valueOf(winnerSide) else null
+
             return if (room != null) {
                 // room is not null -> room & user SHOULD exist already
                 val room = roomService.findRoomById(room) ?: throw RoomDoesNotExistException(room)
                 room.history = history
+                // if ws socket is broken - need to save winner
+                if (room.winType == null || room.winnerSide == null) {
+                    room.winType = finishType
+                    room.winnerSide = winnerSideFixed
+                }
                 roomService.save(room)
 
                 RoomHistorySaveResponse(backendUserId = backendUserId!!)
             } else {
                 // room is null -> room doesn't exist, this is user vs bot
-                saveHistoryForUserAndBot(this)
+                saveHistoryForUserAndBot(this, winnerSideFixed)
             }
         }
     }
@@ -329,7 +336,7 @@ class DistributorService(
         }
     }
 
-    private fun saveHistoryForUserAndBot(request: RoomHistorySaveRequest): RoomHistorySaveResponse {
+    private fun saveHistoryForUserAndBot(request: RoomHistorySaveRequest, winnerSideFixed: SideType?): RoomHistorySaveResponse {
         with(request) {
             val user = searchOrCreateUserBySignatureAndId(
                 signature = signature, backendUserId = backendUserId, username = username
@@ -346,7 +353,7 @@ class DistributorService(
                     user2Name = opponentName,
                     gameType = opponentType,
                     history = history,
-                    winnerSide = winnerSide,
+                    winnerSide = winnerSideFixed,
                     winType = finishType
                 )
             } else {
@@ -361,7 +368,7 @@ class DistributorService(
                     user2Name = username,
                     gameType = opponentType,
                     history = history,
-                    winnerSide = winnerSide,
+                    winnerSide = winnerSideFixed,
                     winType = finishType
                 )
             }
@@ -384,7 +391,7 @@ class DistributorService(
                     opponentType = user2Side,
                     gameType = gameType,
                     history = history!!,
-                    winnerSide = winnerSide!!,
+                    winnerSide = winnerSide,
                     finishType = winType!!
                 )
             }
@@ -399,7 +406,7 @@ class DistributorService(
                     opponentType = user1Side,
                     gameType = gameType,
                     history = history!!,
-                    winnerSide = winnerSide!!,
+                    winnerSide = winnerSide,
                     finishType = winType!!
                 )
             }
