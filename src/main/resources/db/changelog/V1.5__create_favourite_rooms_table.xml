@@ -1,0 +1,50 @@
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="create_favourite_rooms_table" author="daniil.zharnov">
+        <createTable tableName="favourite_rooms">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="favourite_rooms_pk"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="room_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint  baseColumnNames="user_id"
+                                  baseTableName="favourite_rooms"
+                                  baseTableSchemaName="public"
+                                  constraintName="fk_chess_users_2_favourite_rooms_user_id"
+                                  onDelete="NO ACTION"
+                                  onUpdate="NO ACTION"
+                                  referencedColumnNames="id"
+                                  referencedTableName="chess_users_2"
+                                  referencedTableSchemaName="public"
+                                  validate="true"/>
+
+        <addForeignKeyConstraint  baseColumnNames="room_id"
+                                  baseTableName="favourite_rooms"
+                                  baseTableSchemaName="public"
+                                  constraintName="fk_chess_rooms_2_favourite_rooms_room_id"
+                                  onDelete="NO ACTION"
+                                  onUpdate="NO ACTION"
+                                  referencedColumnNames="id"
+                                  referencedTableName="chess_rooms_2"
+                                  referencedTableSchemaName="public"
+                                  validate="true"/>
+
+        <createIndex clustered= "true"
+                     indexName="idx_favourite_rooms_user_id_room_id"
+                     schemaName="public"
+                     tableName="favourite_rooms"
+                     unique="false">
+            <column descending="true" name="user_id"/>
+            <column descending="true" name="room_id"/>
+        </createIndex>
+
+    </changeSet>
+</databaseChangeLog>

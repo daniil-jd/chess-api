@@ -30,6 +30,10 @@ class UserService(
         }
     }
 
+    fun findByAuthCode(authCode: String): UserEntity? {
+        return userRepository.findByAuthCode(authCode)
+    }
+
     fun createUser(username: String, signature: String?): UserEntity {
         return userRepository.save(
             UserEntity(

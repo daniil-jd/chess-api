@@ -3,19 +3,35 @@ package ru.chess.chessapi.web.controllers
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import ru.chess.chessapi.service.DistributorService
 import ru.chess.chessapi.web.dto.security.AuthenticationTokenRequestDto
 import ru.chess.chessapi.web.dto.security.AuthenticationTokenResponseDto
-import ru.chess.chessapi.service.security.AuthenticationService
 import ru.chess.chessapi.utils.Constants.AUTHENTICATION_API
+import ru.chess.chessapi.web.dto.request.AuthBySignatureRequest
+import ru.chess.chessapi.web.dto.response.AuthResponse
+import ru.chess.chessapi.web.dto.response.AuthCodeResponse
+import java.util.*
 
 @RestController
 @RequestMapping(AUTHENTICATION_API)
 class AuthenticationController(
-    private val service: AuthenticationService
+    private val distributorService: DistributorService
 ) {
-    @PostMapping
-    fun authenticate(@RequestBody authRequest: AuthenticationTokenRequestDto): AuthenticationTokenResponseDto {
-        return service.authenticate(authRequest)
+
+    @PostMapping("/signature")
+    fun bySignature(@RequestBody request: AuthBySignatureRequest): AuthResponse {
+        return distributorService.authBySignature(request)
+    }
+
+    @PostMapping("/code/generate")
+    fun generate(@RequestParam backendUserId: UUID): AuthCodeResponse {
+        return distributorService.generateAuthCode(backendUserId)
+    }
+
+    @PostMapping("/code/auth")
+    fun authByCode(@RequestParam authCode: String): AuthResponse {
+        return distributorService.validateAuthCode(authCode)
     }
 }

@@ -8,16 +8,6 @@ import java.util.UUID
 
 interface RoomRepository : JpaRepository<RoomEntity, UUID> {
 
-    // todo: doesn't work, something wrong with relatives
-    @Query(
-        """
-            select re from RoomEntity re
-            where re.user1 = (:user1) and re.user2 = (:user2) and re.winnerSide is null or 
-                re.user2 = (:user1) and re.user1 = (:user2) and re.winnerSide is null
-        """
-    )
-    fun findByUser1AndUser2(user1: UserEntity, user2: UserEntity): List<RoomEntity>
-
     @Query(
         nativeQuery = true,
         value = """
@@ -32,20 +22,20 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
         nativeQuery = true,
         value = """
             select re.* from public.chess_rooms_2 re
-            where re.win_type is not null and (re.user_1 = (:user) or re.user_2 = (:user))
+            where re.win_type is not null and (re.user_1 = (:userId) or re.user_2 = (:userId)) and re.game_type = :gameType
             order by re.created_at desc
-            limit 20
+            limit 30
         """
     )
-    fun findLatest20RoomsByUser(user: UserEntity): List<RoomEntity>
+    fun findLatest30RoomsByUser(userId: UUID, gameType: String): List<RoomEntity>
 
     @Query(
         nativeQuery = true,
         value = """
             select count(*) from public.chess_rooms_2 re
-            where re.user_1 = (:user) and re.winner_side is not null
-                or re.user_2 = (:user) and re.winner_side is not null
+            where re.user_1 = (:userId) and re.winner_side is not null
+                or re.user_2 = (:userId) and re.winner_side is not null
         """
     )
-    fun countByUser(user: UserEntity): Long
+    fun countByUser(userId: UUID): Long
 }

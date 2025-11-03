@@ -10,6 +10,8 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
 
     fun findBySignature(signature: String): UserEntity?
 
+    fun findByAuthCode(authCode: String): UserEntity?
+
     @Query(
         """
             from UserEntity ue where ue.isBot = :isBot

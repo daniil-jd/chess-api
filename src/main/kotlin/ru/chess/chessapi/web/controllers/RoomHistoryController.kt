@@ -21,6 +21,6 @@ class RoomHistoryController(
         @RequestParam backendUserId: String?,
         @RequestParam signature: String?
     ): RoomHistorySearchResponse {
-        return service.getLatest20UserHistory(backendUserId, signature)
+        return service.getLatest30GamesEachType(backendUserId, signature)
     }
 }

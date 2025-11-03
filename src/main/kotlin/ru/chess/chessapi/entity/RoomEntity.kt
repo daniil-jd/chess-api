@@ -1,17 +1,28 @@
 package ru.chess.chessapi.entity
 
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
+import jakarta.persistence.Id
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.OneToOne
+import jakarta.persistence.PrePersist
+import jakarta.persistence.Table
 import org.hibernate.annotations.CreationTimestamp
 import ru.chess.chessapi.web.websocket.message.enums.FinishType
 import ru.chess.chessapi.web.websocket.message.enums.GameType
 import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.time.LocalDateTime
 import java.util.*
-import javax.persistence.*
 
 @Entity
 @Table(name = "chess_rooms_2")
 data class RoomEntity(
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null,
     @OneToOne
     @JoinColumn(name = "user_1", referencedColumnName = "id")
@@ -38,9 +49,4 @@ data class RoomEntity(
     var winType: FinishType?,
     @CreationTimestamp
     var createdAt: LocalDateTime? = null
-) {
-    @PrePersist
-    fun prePersist() {
-        id = UUID.randomUUID()
-    }
-}
+)

@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
+import ru.chess.chessapi.exception.UserDoesNotExistException
+import ru.chess.chessapi.exception.UserNotInRoomException
 import ru.chess.chessapi.repository.RoomRepository
 import ru.chess.chessapi.web.websocket.message.enums.FinishType
 import ru.chess.chessapi.web.websocket.message.enums.GameType
@@ -84,15 +86,42 @@ class RoomService(
         return roomRepository.findByIdOrNull(roomId)
     }
 
-    fun findLatest20RoomsByUser(user: UserEntity): List<RoomEntity> {
-        return roomRepository.findLatest20RoomsByUser(user)
+    fun findLatest30RoomsByUser(user: UserEntity, gameType: GameType): List<RoomEntity> {
+        return roomRepository.findLatest30RoomsByUser(user.id!!, gameType.toString())
     }
 
     fun getCountByUser(user: UserEntity): Long {
-        return roomRepository.countByUser(user)
+        return roomRepository.countByUser(user.id!!)
     }
 
+    @Transactional
     fun save(room: RoomEntity): RoomEntity {
         return roomRepository.save(room)
+    }
+
+    fun isUserWinner(user: UserEntity, room: RoomEntity): Int {
+        val userSide = if (room.user1 == user) {
+            room.user1Side
+        } else if (room.user2 == user) {
+            room.user2Side
+        } else {
+            throw UserNotInRoomException(user.id!!, room.id!!)
+        }
+
+        return when {
+            // draw
+            room.winnerSide == null -> {
+                0
+            }
+            // win
+            room.winnerSide != null && userSide == room.winnerSide!! -> {
+                1
+            }
+            // lose
+            else -> {
+                -1
+            }
+        }
+
     }
 }
