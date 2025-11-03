@@ -7,6 +7,7 @@ import ru.chess.chessapi.entity.FavouriteRoomEntity
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
+import ru.chess.chessapi.exception.MatchIsNotOverException
 import ru.chess.chessapi.exception.RoomDoesNotExistException
 import ru.chess.chessapi.exception.UserDoesNotExistException
 import ru.chess.chessapi.exception.UserNotInRoomException
@@ -16,6 +17,7 @@ import ru.chess.chessapi.web.dto.request.FavouriteRequest
 import ru.chess.chessapi.web.dto.request.RoomHistorySaveRequest
 import ru.chess.chessapi.web.dto.response.AuthResponse
 import ru.chess.chessapi.web.dto.response.AuthCodeResponse
+import ru.chess.chessapi.web.dto.response.HistoryRoomResponse
 import ru.chess.chessapi.web.dto.response.RoomHistorySaveResponse
 import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
 import ru.chess.chessapi.web.websocket.message.RequestForRoomMessageDto
@@ -264,7 +266,12 @@ class DistributorService(
     }
 
     @Transactional
-    fun updateRoomHistoryAndReturnAnotherUser(roomId: UUID, sideOfMove: SideType, move: String, promotionType: PromotionType?): UserEntity {
+    fun updateRoomHistoryAndReturnAnotherUser(
+        roomId: UUID,
+        sideOfMove: SideType,
+        move: String,
+        promotionType: PromotionType?
+    ): UserEntity {
         val room = updateRoomHistory(roomId, move, promotionType)
         return findAnotherUser(room, sideOfMove)
     }
@@ -390,6 +397,21 @@ class DistributorService(
         }
     }
 
+    fun getHistoryRoomById(roomId: UUID): HistoryRoomResponse {
+        val room = roomService.findRoomById(roomId) ?: throw RoomDoesNotExistException(roomId)
+        if (room.winnerSide == null) throw MatchIsNotOverException(roomId)
+        return with(room) {
+            HistoryRoomResponse(
+                room = id!!,
+                playerWhiteName = user1Name,
+                playerBlackName = user2Name,
+                history = history!!,
+                finishType = winType!!,
+                winnerSide = winnerSide!!
+                )
+        }
+    }
+
     private fun prepareRoomHistoryResponse(user: UserEntity): RoomHistorySearchResponse { // todo тест, порядок партий тестировать
         val rooms = mutableListOf<RoomEntity>().apply {
             addAll(roomService.findLatest30RoomsByUser(user, GameType.ONLINE))
@@ -408,7 +430,7 @@ class DistributorService(
 
                 values.forEach { room ->
                     val matchResult = roomService.isUserWinner(user, room)
-                    when(matchResult) {
+                    when (matchResult) {
                         -1 -> lost++
                         0 -> draw++
                         1 -> won++
