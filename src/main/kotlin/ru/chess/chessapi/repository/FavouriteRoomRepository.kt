@@ -11,4 +11,6 @@ interface FavouriteRoomRepository : JpaRepository<FavouriteRoomEntity, UUID> {
     fun findByUserAndRoom(user: UserEntity, room: RoomEntity): FavouriteRoomEntity?
 
     fun findByUserAndRoomIn(user: UserEntity, rooms: List<RoomEntity>): List<FavouriteRoomEntity>
+
+    fun findAllByUser(user: UserEntity): List<FavouriteRoomEntity>
 }

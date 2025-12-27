@@ -15,9 +15,12 @@ import ru.chess.chessapi.model.CandidatePair
 import ru.chess.chessapi.web.dto.request.AuthBySignatureRequest
 import ru.chess.chessapi.web.dto.request.FavouriteRequest
 import ru.chess.chessapi.web.dto.request.RoomHistorySaveRequest
+import ru.chess.chessapi.web.dto.request.UserChangeNameRequest
 import ru.chess.chessapi.web.dto.response.AuthResponse
 import ru.chess.chessapi.web.dto.response.AuthCodeResponse
+import ru.chess.chessapi.web.dto.response.FavouriteRoomResponse
 import ru.chess.chessapi.web.dto.response.HistoryRoomResponse
+import ru.chess.chessapi.web.dto.response.MatchHistoryResponse
 import ru.chess.chessapi.web.dto.response.RoomHistorySaveResponse
 import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
 import ru.chess.chessapi.web.websocket.message.RequestForRoomMessageDto
@@ -370,7 +373,7 @@ class DistributorService(
     }
 
     @Transactional
-    fun addOrDeleteFavourite(request: FavouriteRequest) {
+    fun addOrDeleteFavourite(request: FavouriteRequest): FavouriteRoomResponse {
         with(request) {
             val roomEntity = roomService.findRoomById(room) ?: throw RoomDoesNotExistException(room)
 
@@ -387,13 +390,28 @@ class DistributorService(
             }
 
             val favouriteRoom = favouriteRoomService.findByUserAndRoom(userEntity, roomEntity)
-            if (favouriteRoom != null) {
+            return if (favouriteRoom != null) {
                 // if exist - remove from favourites (delete favourite room entity)
                 favouriteRoomService.delete(favouriteRoom)
+                FavouriteRoomResponse(
+                    status = FavouriteRoomResponse.Status.DELETED
+                )
             } else {
                 // if not exist - add to favourite (create favourite room entity)
                 favouriteRoomService.create(userEntity, roomEntity)
+                FavouriteRoomResponse(
+                    status = FavouriteRoomResponse.Status.CREATED
+                )
             }
+        }
+    }
+
+    @Transactional
+    fun changeUserName(request: UserChangeNameRequest) {
+        with(request) {
+            val user = userService.findById(backendUserId) ?: throw UserDoesNotExistException(backendUserId.toString())
+            user.username = newName
+            userService.save(user)
         }
     }
 
@@ -412,7 +430,7 @@ class DistributorService(
         }
     }
 
-    private fun prepareRoomHistoryResponse(user: UserEntity): RoomHistorySearchResponse { // todo тест, порядок партий тестировать
+    private fun prepareRoomHistoryResponse(user: UserEntity): RoomHistorySearchResponse {
         val rooms = mutableListOf<RoomEntity>().apply {
             addAll(roomService.findLatest30RoomsByUser(user, GameType.ONLINE))
             addAll(roomService.findLatest30RoomsByUser(user, GameType.BOT))
@@ -442,11 +460,13 @@ class DistributorService(
 
         val roomToFavourite: Map<RoomEntity, FavouriteRoomEntity> =
             favouriteRoomService.findByUserAndRooms(user, rooms).associateBy { it.room }
+        val allFavouritesByUser = favouriteRoomService.findAllByUser(user)
 
         return RoomHistorySearchResponse(
             backendUserId = user.id!!,
             signature = user.signature,
             matchStatistics = matchStatistic,
+            favouritesHistory = allFavouritesByUser.map { it.toMatchHistory(user) },
             matchesHistory = rooms.mapIndexed { index, roomEntity ->
                 val favourite = roomToFavourite[roomEntity] != null
                 roomEntity.toMatchHistory(user, index, roomsCount, favourite)
@@ -502,13 +522,13 @@ class DistributorService(
         index: Int,
         count: Long,
         favourite: Boolean
-    ): RoomHistorySearchResponse.MatchHistory {
+    ): MatchHistoryResponse {
         val createdAtWithoutSeconds = createdAt!!.format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm"))
         val matchNumber = count - index
         return when {
             this.user1 == user -> {
                 // user1 = requested user, user2 = opponent
-                RoomHistorySearchResponse.MatchHistory(
+                MatchHistoryResponse(
                     roomId = id!!,
                     matchNumber = matchNumber,
                     createdAt = createdAtWithoutSeconds,
@@ -525,7 +545,7 @@ class DistributorService(
             }
             else -> {
                 // user2 = requested user, user1 = opponent
-                RoomHistorySearchResponse.MatchHistory(
+                MatchHistoryResponse(
                     roomId = id!!,
                     matchNumber = matchNumber,
                     createdAt = createdAtWithoutSeconds,
@@ -538,6 +558,47 @@ class DistributorService(
                     history = history!!,
                     winnerSide = winnerSide,
                     finishType = winType!!
+                )
+            }
+        }
+    }
+
+    private fun FavouriteRoomEntity.toMatchHistory(user: UserEntity): MatchHistoryResponse {
+        val createdAtWithoutSeconds = room.createdAt!!.format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm"))
+        val matchNumber = 0L // todo fix it
+        return when {
+            this.room.user1 == user -> {
+                // user1 = requested user, user2 = opponent
+                MatchHistoryResponse(
+                    roomId = room.id!!,
+                    matchNumber = matchNumber,
+                    createdAt = createdAtWithoutSeconds,
+                    favourite = true,
+                    userSide = room.user1Side,
+                    userName = room.user1.username,
+                    opponentName = room.user2Name,
+                    opponentType = room.user2Side,
+                    gameType = room.gameType,
+                    history = room.history!!,
+                    winnerSide = room.winnerSide,
+                    finishType = room.winType!!
+                )
+            }
+            else -> {
+                // user2 = requested user, user1 = opponent
+                MatchHistoryResponse(
+                    roomId = room.id!!,
+                    matchNumber = matchNumber,
+                    createdAt = createdAtWithoutSeconds,
+                    favourite = true,
+                    userSide = room.user2Side,
+                    userName = room.user2.username,
+                    opponentName = room.user1Name,
+                    opponentType = room.user1Side,
+                    gameType = room.gameType,
+                    history = room.history!!,
+                    winnerSide = room.winnerSide,
+                    finishType = room.winType!!
                 )
             }
         }

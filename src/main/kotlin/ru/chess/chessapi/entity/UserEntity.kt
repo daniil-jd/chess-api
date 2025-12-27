@@ -16,7 +16,7 @@ data class UserEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null,
-    val username: String,
+    var username: String,
     var signature: String?,
     @Column(name = "serial_number", insertable = false, updatable = false)
     val serialNumber: Long? = null,

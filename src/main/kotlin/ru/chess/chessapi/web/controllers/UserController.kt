@@ -4,15 +4,15 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import ru.chess.chessapi.service.DistributorService
-import ru.chess.chessapi.web.dto.request.FavouriteRequest
-import ru.chess.chessapi.web.dto.response.FavouriteRoomResponse
+import ru.chess.chessapi.web.dto.request.UserChangeNameRequest
 
 @RestController
-class FavouriteRoomController(
+class UserController(
     private val distributorService: DistributorService
 ) {
-    @PutMapping("/favourite")
-    fun addOrDeleteFavourite(@RequestBody request: FavouriteRequest): FavouriteRoomResponse {
-        return distributorService.addOrDeleteFavourite(request)
+
+    @PutMapping("/user/name")
+    fun addOrDeleteFavourite(@RequestBody request: UserChangeNameRequest) {
+        distributorService.changeUserName(request)
     }
 }

@@ -4,6 +4,5 @@ import java.util.UUID
 
 data class FavouriteRequest(
     val room: UUID,
-    val backendUserId: UUID,
-    val favourite: Boolean
+    val backendUserId: UUID
 )

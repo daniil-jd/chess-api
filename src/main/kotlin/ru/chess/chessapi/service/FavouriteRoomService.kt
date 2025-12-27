@@ -27,4 +27,8 @@ class FavouriteRoomService(
         return favouriteRoomRepository.findByUserAndRoomIn(user, rooms)
     }
 
+    fun findAllByUser(user: UserEntity): List<FavouriteRoomEntity> {
+        return favouriteRoomRepository.findAllByUser(user)
+    }
+
 }

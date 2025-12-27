@@ -11,7 +11,7 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
     @Query(
         nativeQuery = true,
         value = """
-            select re from public.chess_rooms_2 re
+            select re.* from public.chess_rooms_2 re
             where re.user_1 = :userId1 and re.user_2 = :userId2 and re.winner_side is null or 
                 re.user_2 = :userId1 and re.user_1 = :userId2 and re.winner_side is null
         """

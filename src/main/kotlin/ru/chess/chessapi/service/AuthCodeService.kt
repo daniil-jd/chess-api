@@ -3,7 +3,7 @@ package ru.chess.chessapi.service
 import org.springframework.stereotype.Service
 import org.sqids.Sqids
 import java.util.UUID
-import kotlin.random.Random
+import kotlin.math.absoluteValue
 
 @Service
 class AuthCodeService {
@@ -13,6 +13,8 @@ class AuthCodeService {
         const val SUBSTRING_START_POS = 0
         const val SUBSTRING_END_POS = 7
         const val DASH = "-"
+        const val MAX_DASH_INDEX_VALUE = 5
+        const val MIN_DASH_INDEX_VALUE = 1
     }
 
     fun generateShortAuthCode(uuidToParse: UUID): String {
@@ -30,9 +32,10 @@ class AuthCodeService {
 
     private fun substringSquidAndAddDash(squid: String): String {
         val sb = StringBuilder(squid)
-        val randomIndex = Random.nextInt(1, 5)
+        val preIndex = (MAX_DASH_INDEX_VALUE - squid.hashCode().absoluteValue.toString()[0].toString().toInt()).absoluteValue
+        val index = if (preIndex < MIN_DASH_INDEX_VALUE) (preIndex + 1) else preIndex
         return sb
-            .insert(randomIndex, DASH)
+            .insert(index, DASH)
             .substring(SUBSTRING_START_POS, SUBSTRING_END_POS)
     }
 
