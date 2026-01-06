@@ -8,6 +8,6 @@
     <include file="V1.1__create_room_and_user_room_candidate_tables.xml" relativeToChangelogFile="true"/>
     <include file="V1.3__create-v_2-tables.xml" relativeToChangelogFile="true"/>
     <include file="V1.4__add_auth_code_field_to_user2_table.xml" relativeToChangelogFile="true"/>
-    <include file="V1.5__create_favourite_rooms_table.xml" relativeToChangelogFile="true"/>
+    <include file="V1.6__create_game_history_table.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -98,30 +98,4 @@ class RoomService(
     fun save(room: RoomEntity): RoomEntity {
         return roomRepository.save(room)
     }
-
-    fun isUserWinner(user: UserEntity, room: RoomEntity): Int {
-        val userSide = if (room.user1 == user) {
-            room.user1Side
-        } else if (room.user2 == user) {
-            room.user2Side
-        } else {
-            throw UserNotInRoomException(user.id!!, room.id!!)
-        }
-
-        return when {
-            // draw
-            room.winnerSide == null -> {
-                0
-            }
-            // win
-            room.winnerSide != null && userSide == room.winnerSide!! -> {
-                1
-            }
-            // lose
-            else -> {
-                -1
-            }
-        }
-
-    }
 }

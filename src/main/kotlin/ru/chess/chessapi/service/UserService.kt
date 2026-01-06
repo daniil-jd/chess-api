@@ -20,6 +20,42 @@ class UserService(
         const val BLACK_BOT_NAME = "black_bot"
     }
 
+    fun searchOrCreateUserBySignatureAndId(
+        signature: String?,
+        backendUserId: UUID?,
+        username: String
+    ): UserEntity {
+        val filteredSignature = signature?.let { it.ifBlank { null } }
+        return when {
+            // not authorized in yandex, first time
+            filteredSignature == null && backendUserId == null -> {
+                // create
+                createUser(username = username, signature = null)
+            }
+
+            // not authorized in yandex, not first time
+            filteredSignature == null && backendUserId != null -> {
+                // search or else create
+                findById(backendUserId) ?: createUser(username = username, signature = null)
+            }
+
+            // authorized in yandex, first time
+            filteredSignature != null && backendUserId == null -> {
+                // create with signature
+                findBySignature(filteredSignature)
+                    ?: createUser(username = username, signature = filteredSignature)
+            }
+
+            // authorized in yandex, not first time
+            // signature != null && backendUserId != null
+            else -> {
+                // search or else create
+                findBySignature(filteredSignature!!) ?: findById(backendUserId!!)
+                ?: createUser(username = username, signature = filteredSignature)
+            }
+        }
+    }
+
     fun save(userEntity: UserEntity): UserEntity = userRepository.save(userEntity)
 
     fun findUserByName(name: String): UserEntity? = userRepository.findByUsername(name)

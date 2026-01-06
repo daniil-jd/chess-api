@@ -3,32 +3,20 @@ package ru.chess.chessapi.service
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import ru.chess.chessapi.entity.FavouriteRoomEntity
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
-import ru.chess.chessapi.exception.MatchIsNotOverException
 import ru.chess.chessapi.exception.RoomDoesNotExistException
 import ru.chess.chessapi.exception.UserDoesNotExistException
-import ru.chess.chessapi.exception.UserNotInRoomException
 import ru.chess.chessapi.model.CandidatePair
 import ru.chess.chessapi.web.dto.request.AuthBySignatureRequest
-import ru.chess.chessapi.web.dto.request.FavouriteRequest
-import ru.chess.chessapi.web.dto.request.RoomHistorySaveRequest
 import ru.chess.chessapi.web.dto.request.UserChangeNameRequest
-import ru.chess.chessapi.web.dto.response.AuthResponse
 import ru.chess.chessapi.web.dto.response.AuthCodeResponse
-import ru.chess.chessapi.web.dto.response.FavouriteRoomResponse
-import ru.chess.chessapi.web.dto.response.HistoryRoomResponse
-import ru.chess.chessapi.web.dto.response.MatchHistoryResponse
-import ru.chess.chessapi.web.dto.response.RoomHistorySaveResponse
-import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
+import ru.chess.chessapi.web.dto.response.AuthResponse
 import ru.chess.chessapi.web.websocket.message.RequestForRoomMessageDto
 import ru.chess.chessapi.web.websocket.message.enums.FinishType
-import ru.chess.chessapi.web.websocket.message.enums.GameType
 import ru.chess.chessapi.web.websocket.message.enums.PromotionType
 import ru.chess.chessapi.web.websocket.message.enums.SideType
-import java.time.format.DateTimeFormatter
 import java.util.*
 
 @Service
@@ -36,8 +24,7 @@ class DistributorService(
     private val userService: UserService,
     private val userRoomCandidateService: UserRoomCandidateService,
     private val roomService: RoomService,
-    private val authCodeService: AuthCodeService,
-    private val favouriteRoomService: FavouriteRoomService
+    private val authCodeService: AuthCodeService
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -45,7 +32,7 @@ class DistributorService(
     @Transactional
     fun createUserRoomCandidate(requestMessageDto: RequestForRoomMessageDto): UserRoomCandidateEntity {
         with(requestMessageDto) {
-            val user = searchOrCreateUserBySignatureAndId(
+            val user = userService.searchOrCreateUserBySignatureAndId(
                 signature = signature, backendUserId = backendUserId, username = username
             )
 
@@ -53,41 +40,7 @@ class DistributorService(
         }
     }
 
-    private fun searchOrCreateUserBySignatureAndId(
-        signature: String?,
-        backendUserId: UUID?,
-        username: String
-    ): UserEntity {
-        val filteredSignature = signature?.let { it.ifBlank { null } }
-        return when {
-            // not authorized in yandex, first time
-            filteredSignature == null && backendUserId == null -> {
-                // create
-                userService.createUser(username = username, signature = null)
-            }
 
-            // not authorized in yandex, not first time
-            filteredSignature == null && backendUserId != null -> {
-                // search or else create
-                userService.findById(backendUserId) ?: userService.createUser(username = username, signature = null)
-            }
-
-            // authorized in yandex, first time
-            filteredSignature != null && backendUserId == null -> {
-                // create with signature
-                userService.findBySignature(filteredSignature)
-                    ?: userService.createUser(username = username, signature = filteredSignature)
-            }
-
-            // authorized in yandex, not first time
-            // signature != null && backendUserId != null
-            else -> {
-                // search or else create
-                userService.findBySignature(filteredSignature!!) ?: userService.findById(backendUserId!!)
-                ?: userService.createUser(username = username, signature = filteredSignature)
-            }
-        }
-    }
 
     @Transactional
     fun searchCandidatesAndCreateRooms(): List<RoomEntity> {
@@ -288,60 +241,8 @@ class DistributorService(
     }
 
     @Transactional
-    fun saveHistory(request: RoomHistorySaveRequest): RoomHistorySaveResponse {
-        with(request) {
-            val winnerSideFixed = if (!winnerSide.isNullOrBlank()) SideType.valueOf(winnerSide) else null
-
-            return if (room != null) {
-                // room is not null -> room & user SHOULD exist already
-                val room = roomService.findRoomById(room) ?: throw RoomDoesNotExistException(room)
-                room.history = history
-                // if ws socket is broken - need to save winner
-                if (room.winType == null || room.winnerSide == null) {
-                    room.winType = finishType
-                    room.winnerSide = winnerSideFixed
-                }
-                roomService.save(room)
-
-                RoomHistorySaveResponse(backendUserId = backendUserId!!)
-            } else {
-                // room is null -> room doesn't exist, this is user vs bot
-                saveHistoryForUserAndBot(this, winnerSideFixed)
-            }
-        }
-    }
-
-    fun getLatest30GamesEachType(backendUserId: String?, signature: String?): RoomHistorySearchResponse {
-        return when {
-            // backendUserId is not null, not blank
-            !backendUserId.isNullOrBlank() -> {
-                val userId = try {
-                    UUID.fromString(backendUserId)
-                } catch (ex: Exception) {
-                    logger.error { "Can't parse UUID from backendUserId: $backendUserId" }
-                    throw UserDoesNotExistException(backendUserId)
-                }
-                val user = userService.findById(userId) ?: throw UserDoesNotExistException(backendUserId)
-
-                prepareRoomHistoryResponse(user)
-            }
-            // only signature is present and not null, not blank
-            backendUserId.isNullOrBlank() && !signature.isNullOrBlank() -> {
-                val user = userService.findBySignature(signature) ?: throw UserDoesNotExistException(signature)
-
-                prepareRoomHistoryResponse(user)
-            }
-            // if backendUserId and signature are null or blank
-            else -> {
-                logger.error { "Can't find user and rooms by nullable backendUserid and signature" }
-                throw UserDoesNotExistException("nothing")
-            }
-        }
-    }
-
-    @Transactional
     fun authBySignature(request: AuthBySignatureRequest): AuthResponse {
-        val user = searchOrCreateUserBySignatureAndId(
+        val user = userService.searchOrCreateUserBySignatureAndId(
             signature = request.signature,
             backendUserId = null,
             username = request.playerName
@@ -373,234 +274,11 @@ class DistributorService(
     }
 
     @Transactional
-    fun addOrDeleteFavourite(request: FavouriteRequest): FavouriteRoomResponse {
-        with(request) {
-            val roomEntity = roomService.findRoomById(room) ?: throw RoomDoesNotExistException(room)
-
-            val userEntity = when (backendUserId) {
-                roomEntity.user1.id!! -> {
-                    roomEntity.user1
-                }
-                roomEntity.user2.id!! -> {
-                    roomEntity.user2
-                }
-                else -> {
-                    throw UserNotInRoomException(userId = backendUserId, roomId = room)
-                }
-            }
-
-            val favouriteRoom = favouriteRoomService.findByUserAndRoom(userEntity, roomEntity)
-            return if (favouriteRoom != null) {
-                // if exist - remove from favourites (delete favourite room entity)
-                favouriteRoomService.delete(favouriteRoom)
-                FavouriteRoomResponse(
-                    status = FavouriteRoomResponse.Status.DELETED
-                )
-            } else {
-                // if not exist - add to favourite (create favourite room entity)
-                favouriteRoomService.create(userEntity, roomEntity)
-                FavouriteRoomResponse(
-                    status = FavouriteRoomResponse.Status.CREATED
-                )
-            }
-        }
-    }
-
-    @Transactional
     fun changeUserName(request: UserChangeNameRequest) {
         with(request) {
             val user = userService.findById(backendUserId) ?: throw UserDoesNotExistException(backendUserId.toString())
             user.username = newName
             userService.save(user)
-        }
-    }
-
-    fun getHistoryRoomById(roomId: UUID): HistoryRoomResponse {
-        val room = roomService.findRoomById(roomId) ?: throw RoomDoesNotExistException(roomId)
-        if (room.winnerSide == null) throw MatchIsNotOverException(roomId)
-        return with(room) {
-            HistoryRoomResponse(
-                room = id!!,
-                playerWhiteName = user1Name,
-                playerBlackName = user2Name,
-                history = history!!,
-                finishType = winType!!,
-                winnerSide = winnerSide!!
-                )
-        }
-    }
-
-    private fun prepareRoomHistoryResponse(user: UserEntity): RoomHistorySearchResponse {
-        val rooms = mutableListOf<RoomEntity>().apply {
-            addAll(roomService.findLatest30RoomsByUser(user, GameType.ONLINE))
-            addAll(roomService.findLatest30RoomsByUser(user, GameType.BOT))
-            addAll(roomService.findLatest30RoomsByUser(user, GameType.PSEUDO))
-            addAll(roomService.findLatest30RoomsByUser(user, GameType.LOCAL))
-        }
-        val roomsCount = roomService.getCountByUser(user)
-
-        val matchStatistic = rooms
-            .groupBy { room -> room.gameType }
-            .mapValues { (key, values) ->
-                var won = 0
-                var lost = 0
-                var draw = 0
-
-                values.forEach { room ->
-                    val matchResult = roomService.isUserWinner(user, room)
-                    when (matchResult) {
-                        -1 -> lost++
-                        0 -> draw++
-                        1 -> won++
-                    }
-                }
-
-                RoomHistorySearchResponse.MatchStatistic(key, won = won, lost = lost, draw = draw)
-            }.values.toList()
-
-        val roomToFavourite: Map<RoomEntity, FavouriteRoomEntity> =
-            favouriteRoomService.findByUserAndRooms(user, rooms).associateBy { it.room }
-        val allFavouritesByUser = favouriteRoomService.findAllByUser(user)
-
-        return RoomHistorySearchResponse(
-            backendUserId = user.id!!,
-            signature = user.signature,
-            matchStatistics = matchStatistic,
-            favouritesHistory = allFavouritesByUser.map { it.toMatchHistory(user) },
-            matchesHistory = rooms.mapIndexed { index, roomEntity ->
-                val favourite = roomToFavourite[roomEntity] != null
-                roomEntity.toMatchHistory(user, index, roomsCount, favourite)
-            }
-        )
-    }
-
-    private fun saveHistoryForUserAndBot(
-        request: RoomHistorySaveRequest,
-        winnerSideFixed: SideType?
-    ): RoomHistorySaveResponse {
-        with(request) {
-            val user = searchOrCreateUserBySignatureAndId(
-                signature = signature, backendUserId = backendUserId, username = username
-            )
-            if (userSide == SideType.WHITE) {
-                val blackBot = userService.findBotByColor(isWhite = false)
-
-                roomService.createRoomWithHistory(
-                    user1 = user,
-                    user1SideType = SideType.WHITE,
-                    user1Name = username,
-                    user2 = blackBot,
-                    user2SideType = SideType.BLACK,
-                    user2Name = opponentName,
-                    gameType = opponentType,
-                    history = history,
-                    winnerSide = winnerSideFixed,
-                    winType = finishType
-                )
-            } else {
-                val whiteBot = userService.findBotByColor(isWhite = true)
-
-                roomService.createRoomWithHistory(
-                    user1 = whiteBot,
-                    user1SideType = SideType.WHITE,
-                    user1Name = opponentName,
-                    user2 = user,
-                    user2SideType = SideType.BLACK,
-                    user2Name = username,
-                    gameType = opponentType,
-                    history = history,
-                    winnerSide = winnerSideFixed,
-                    winType = finishType
-                )
-            }
-            return RoomHistorySaveResponse(user.id!!)
-        }
-    }
-
-    private fun RoomEntity.toMatchHistory(
-        user: UserEntity,
-        index: Int,
-        count: Long,
-        favourite: Boolean
-    ): MatchHistoryResponse {
-        val createdAtWithoutSeconds = createdAt!!.format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm"))
-        val matchNumber = count - index
-        return when {
-            this.user1 == user -> {
-                // user1 = requested user, user2 = opponent
-                MatchHistoryResponse(
-                    roomId = id!!,
-                    matchNumber = matchNumber,
-                    createdAt = createdAtWithoutSeconds,
-                    favourite = favourite,
-                    userSide = user1Side,
-                    userName = user1.username,
-                    opponentName = user2Name,
-                    opponentType = user2Side,
-                    gameType = gameType,
-                    history = history!!,
-                    winnerSide = winnerSide,
-                    finishType = winType!!
-                )
-            }
-            else -> {
-                // user2 = requested user, user1 = opponent
-                MatchHistoryResponse(
-                    roomId = id!!,
-                    matchNumber = matchNumber,
-                    createdAt = createdAtWithoutSeconds,
-                    favourite = favourite,
-                    userSide = user2Side,
-                    userName = user2.username,
-                    opponentName = user1Name,
-                    opponentType = user1Side,
-                    gameType = gameType,
-                    history = history!!,
-                    winnerSide = winnerSide,
-                    finishType = winType!!
-                )
-            }
-        }
-    }
-
-    private fun FavouriteRoomEntity.toMatchHistory(user: UserEntity): MatchHistoryResponse {
-        val createdAtWithoutSeconds = room.createdAt!!.format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm"))
-        val matchNumber = 0L // todo fix it
-        return when {
-            this.room.user1 == user -> {
-                // user1 = requested user, user2 = opponent
-                MatchHistoryResponse(
-                    roomId = room.id!!,
-                    matchNumber = matchNumber,
-                    createdAt = createdAtWithoutSeconds,
-                    favourite = true,
-                    userSide = room.user1Side,
-                    userName = room.user1.username,
-                    opponentName = room.user2Name,
-                    opponentType = room.user2Side,
-                    gameType = room.gameType,
-                    history = room.history!!,
-                    winnerSide = room.winnerSide,
-                    finishType = room.winType!!
-                )
-            }
-            else -> {
-                // user2 = requested user, user1 = opponent
-                MatchHistoryResponse(
-                    roomId = room.id!!,
-                    matchNumber = matchNumber,
-                    createdAt = createdAtWithoutSeconds,
-                    favourite = true,
-                    userSide = room.user2Side,
-                    userName = room.user2.username,
-                    opponentName = room.user1Name,
-                    opponentType = room.user1Side,
-                    gameType = room.gameType,
-                    history = room.history!!,
-                    winnerSide = room.winnerSide,
-                    finishType = room.winType!!
-                )
-            }
         }
     }
 }

@@ -7,7 +7,7 @@ import java.util.UUID
 
 data class MatchHistoryResponse(
     val roomId: UUID,
-    val matchNumber: Long,
+    val matchNumber: Int,
     val favourite: Boolean = false,
     val createdAt: String,
     val userSide: SideType,

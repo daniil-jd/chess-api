@@ -1,7 +1,7 @@
 package ru.chess.chessapi.web.websocket.message.enums
 
-enum class SideType {
-    WHITE,
-    BLACK,
-    RANDOM
+enum class UserGameStatus {
+    WIN,
+    DRAW,
+    LOSE
 }

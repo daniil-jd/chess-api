@@ -1,0 +1,71 @@
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="create_game_history_table" author="daniil.zharnov">
+        <createTable tableName="game_history">
+            <column name="user_id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="game_history_pk"/>
+            </column>
+            <column name="room_id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="game_history_pk"/>
+            </column>
+            <column name="game_type" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="match_number" type="int4">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_game_status" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="favourite" type="boolean">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp without time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint  baseColumnNames="user_id"
+                                  baseTableName="game_history"
+                                  baseTableSchemaName="public"
+                                  constraintName="fk_chess_users_2_game_history_user_id"
+                                  onDelete="NO ACTION"
+                                  onUpdate="NO ACTION"
+                                  referencedColumnNames="id"
+                                  referencedTableName="chess_users_2"
+                                  referencedTableSchemaName="public"
+                                  validate="true"/>
+
+        <addForeignKeyConstraint  baseColumnNames="room_id"
+                                  baseTableName="game_history"
+                                  baseTableSchemaName="public"
+                                  constraintName="fk_chess_rooms_2_game_history_room_id"
+                                  onDelete="NO ACTION"
+                                  onUpdate="NO ACTION"
+                                  referencedColumnNames="id"
+                                  referencedTableName="chess_rooms_2"
+                                  referencedTableSchemaName="public"
+                                  validate="true"/>
+
+        <createIndex clustered= "true"
+                     indexName="idx_user_id_favourite_game_history"
+                     schemaName="public"
+                     tableName="game_history"
+                     unique="false">
+            <column name="user_id"/>
+            <column name="favourite"/>
+        </createIndex>
+
+        <createIndex clustered= "true"
+                     indexName="idx_user_id_game_type_game_history"
+                     schemaName="public"
+                     tableName="game_history"
+                     unique="false">
+            <column name="user_id"/>
+            <column name="game_type"/>
+        </createIndex>
+
+    </changeSet>
+</databaseChangeLog>

@@ -18,6 +18,7 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: none
+    show-sql: false
   sql:
     init:
       mode: always

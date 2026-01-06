@@ -12,8 +12,8 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
         nativeQuery = true,
         value = """
             select re.* from public.chess_rooms_2 re
-            where re.user_1 = :userId1 and re.user_2 = :userId2 and re.winner_side is null or 
-                re.user_2 = :userId1 and re.user_1 = :userId2 and re.winner_side is null
+            where re.user_1 = :userId1 and re.user_2 = :userId2 and re.win_type is null or 
+                re.user_2 = :userId1 and re.user_1 = :userId2 and re.win_type is null
         """
     )
     fun findAllByUser1AndUser2(userId1: UUID, userId2: UUID): List<RoomEntity>
@@ -33,8 +33,8 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
         nativeQuery = true,
         value = """
             select count(*) from public.chess_rooms_2 re
-            where re.user_1 = (:userId) and re.winner_side is not null
-                or re.user_2 = (:userId) and re.winner_side is not null
+            where re.user_1 = (:userId) and re.win_type is not null
+                or re.user_2 = (:userId) and re.win_type is not null
         """
     )
     fun countByUser(userId: UUID): Long
