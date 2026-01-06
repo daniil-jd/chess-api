@@ -4,26 +4,38 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
-import java.util.Optional
 import java.util.UUID
 
 interface RoomRepository : JpaRepository<RoomEntity, UUID> {
-    fun findByUser1(user: UserEntity): Optional<RoomEntity>
-    fun findByUser2(user: UserEntity): Optional<RoomEntity>
-    @Query(
-        """
-            select re from RoomEntity re 
-            where re.user1 in (:users) or re.user2 in (:users)
-        """
-    )
-    fun findByUsers(users: List<UserEntity>): List<RoomEntity>
 
     @Query(
-        """
-            select re from RoomEntity re
-            where re.user1 = (:user1) and re.user2 = (:user2) or 
-                re.user2 = (:user1) and re.user1 = (:user2)
+        nativeQuery = true,
+        value = """
+            select re.* from public.chess_rooms_2 re
+            where re.user_1 = :userId1 and re.user_2 = :userId2 and re.win_type is null or 
+                re.user_2 = :userId1 and re.user_1 = :userId2 and re.win_type is null
         """
     )
-    fun findByUser1AndUser2(user1: UserEntity, user2: UserEntity): List<RoomEntity>
+    fun findAllByUser1AndUser2(userId1: UUID, userId2: UUID): List<RoomEntity>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            select re.* from public.chess_rooms_2 re
+            where re.win_type is not null and (re.user_1 = (:userId) or re.user_2 = (:userId)) and re.game_type = :gameType
+            order by re.created_at desc
+            limit 30
+        """
+    )
+    fun findLatest30RoomsByUser(userId: UUID, gameType: String): List<RoomEntity>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            select count(*) from public.chess_rooms_2 re
+            where re.user_1 = (:userId) and re.win_type is not null
+                or re.user_2 = (:userId) and re.win_type is not null
+        """
+    )
+    fun countByUser(userId: UUID): Long
 }

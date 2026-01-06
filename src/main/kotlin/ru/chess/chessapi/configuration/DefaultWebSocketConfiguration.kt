@@ -7,7 +7,7 @@ import org.springframework.web.socket.config.annotation.WebSocketConfigurer
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 import org.springframework.web.socket.server.standard.ServerEndpointExporter
 import ru.chess.chessapi.utils.Constants.WEBSOCKET_API
-import ru.chess.chessapi.websocket.WSHandler
+import ru.chess.chessapi.web.websocket.WSHandler
 
 @Configuration
 @EnableWebSocket

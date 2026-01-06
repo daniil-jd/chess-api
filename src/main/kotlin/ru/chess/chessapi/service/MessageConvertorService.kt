@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.TextMessage
-import ru.chess.chessapi.dto.message.*
+import ru.chess.chessapi.web.websocket.message.*
 
 @Service
 class MessageConvertorService(
@@ -19,9 +19,9 @@ class MessageConvertorService(
             getRequestForRoomCancelMessage(message)
     }
 
-    private fun getRequestForRoomMessage(message: TextMessage): RequestMessageDto? {
+    private fun getRequestForRoomMessage(message: TextMessage): RequestForRoomMessageDto? {
         return try {
-            mapper.readValue<RequestMessageDto>(message.payload)
+            mapper.readValue<RequestForRoomMessageDto>(message.payload)
         } catch (ex: Exception) {
             null
         }

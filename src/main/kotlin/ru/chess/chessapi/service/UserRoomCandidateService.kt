@@ -5,8 +5,8 @@ import org.springframework.stereotype.Service
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
 import ru.chess.chessapi.repository.UserRoomCandidateRepository
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.time.LocalDateTime
-import java.util.*
 
 @Service
 class UserRoomCandidateService(
@@ -16,16 +16,17 @@ class UserRoomCandidateService(
         const val BATCH_SIZE = 30
     }
 
-    fun createUserRoomCandidate(user: UserEntity): UserRoomCandidateEntity {
-        val userRoomCandidateOptional = userRoomCandidateRepository.findByUser(user)
-        if (userRoomCandidateOptional.isPresent) {
+    fun createUserRoomCandidate(user: UserEntity, sideType: SideType): UserRoomCandidateEntity {
+        val userRoomCandidate = userRoomCandidateRepository.findByUser(user)
+        if (userRoomCandidate != null) {
             val currentLocalDateTime = LocalDateTime.now()
-            with(userRoomCandidateOptional.get()) {
-                if (this.actualUntil!! > currentLocalDateTime) {
+            with(userRoomCandidate) {
+                if (this.activeUntil!! > currentLocalDateTime) {
                     userRoomCandidateRepository.delete(this)
                     return userRoomCandidateRepository.save(
                         UserRoomCandidateEntity(
                             user = user,
+                            userSide = sideType,
                             createdAt = LocalDateTime.now()
                         )
                     )
@@ -36,6 +37,7 @@ class UserRoomCandidateService(
             return userRoomCandidateRepository.save(
                 UserRoomCandidateEntity(
                     user = user,
+                    userSide = sideType,
                     createdAt = LocalDateTime.now()
                 )
             )
@@ -46,21 +48,21 @@ class UserRoomCandidateService(
         userRoomCandidateRepository.deleteAll(candidates)
     }
 
-    fun findActualUserRoomCandidates(): MutableList<UserRoomCandidateEntity> {
+    fun findActiveUserRoomCandidates(): MutableList<UserRoomCandidateEntity> {
         val currentTime = LocalDateTime.now()
-        var slice = userRoomCandidateRepository.findAllByActualUntilIsGreaterThanEqual(
+        var slice = userRoomCandidateRepository.findAllByActiveUntilIsGreaterThanEqual(
             currentTime, PageRequest.of(0, BATCH_SIZE)
         )
         val result = slice.content
         while (slice.hasNext()) {
-            slice = userRoomCandidateRepository.findAllByActualUntilIsGreaterThanEqual(currentTime, slice.nextPageable())
+            slice = userRoomCandidateRepository.findAllByActiveUntilIsGreaterThanEqual(currentTime, slice.nextPageable())
             result.addAll(slice.content)
         }
         return result.toMutableList()
     }
 
     fun deleteAllOverdue(): Int {
-        return userRoomCandidateRepository.deleteAllByActualUntilGreaterThan(LocalDateTime.now())
+        return userRoomCandidateRepository.deleteAllByActiveUntilGreaterThan(LocalDateTime.now())
     }
 
     fun deleteByUser(user: UserEntity): Int {

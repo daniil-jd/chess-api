@@ -1,10 +1,16 @@
 package ru.chess.chessapi.service
 
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
+import ru.chess.chessapi.exception.UserDoesNotExistException
+import ru.chess.chessapi.exception.UserNotInRoomException
 import ru.chess.chessapi.repository.RoomRepository
+import ru.chess.chessapi.web.websocket.message.enums.FinishType
+import ru.chess.chessapi.web.websocket.message.enums.GameType
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.*
 
 @Service
@@ -13,33 +19,83 @@ class RoomService(
 ) {
 
     @Transactional
-    fun createRoom(user1: UserEntity, user2: UserEntity): RoomEntity {
-        val rooms = roomRepository.findByUser1AndUser2(user1, user2)
+    fun createRoomForOnlineMatch(
+        user1: UserEntity,
+        user1SideType: SideType,
+        user1Name: String,
+        user2: UserEntity,
+        user2SideType: SideType,
+        user2Name: String
+    ): RoomEntity {
+        val rooms = roomRepository.findAllByUser1AndUser2(user1.id!!, user2.id!!)
         if (rooms.isNotEmpty()) {
             throw Exception("Room already exist for user1 ($user1), user2($user2), room: $rooms")
         }
 
-        return roomRepository.save(RoomEntity(user1 = user1, user2 = user2))
+        return roomRepository.save(
+            RoomEntity(
+                user1 = user1,
+                user1Side = user1SideType,
+                user1Name = user1Name,
+                user2 = user2,
+                user2Side = user2SideType,
+                user2Name = user2Name,
+                gameType = GameType.ONLINE,
+                history = null,
+                winnerSide = null,
+                winType = null
+            )
+        )
     }
 
-    fun findUserInRoom(room: RoomEntity, authorName: String, isAuthor: Boolean): Optional<UserEntity> {
-        if (room.user1.username == authorName) {
-            if (isAuthor) {
-                return room.user2.let { Optional.of(room.user2!!) }
-            } else {
-                return Optional.of(room.user1)
-            }
-        } else if (room.user2?.username == authorName) {
-            if (isAuthor) {
-                Optional.of(room.user1)
-            } else {
-                return room.user2.let { Optional.of(room.user2!!) }
-            }
+    @Transactional
+    fun createRoomWithHistory(
+        user1: UserEntity,
+        user1SideType: SideType,
+        user1Name: String,
+        user2: UserEntity,
+        user2SideType: SideType,
+        user2Name: String,
+        gameType: GameType,
+        history: String,
+        winnerSide: SideType?,
+        winType: FinishType
+    ): RoomEntity {
+        val rooms = roomRepository.findAllByUser1AndUser2(user1.id!!, user2.id!!)
+        if (rooms.isNotEmpty()) {
+            throw Exception("Room already exist for user1 ($user1), user2($user2), room: $rooms")
         }
-        return Optional.empty()
+
+        return roomRepository.save(
+            RoomEntity(
+                user1 = user1,
+                user1Side = user1SideType,
+                user1Name = user1Name,
+                user2 = user2,
+                user2Side = user2SideType,
+                user2Name = user2Name,
+                gameType = gameType,
+                history = history,
+                winnerSide = winnerSide,
+                winType = winType
+            )
+        )
     }
 
-    fun findRoomById(roomId: UUID): Optional<RoomEntity> {
-        return roomRepository.findById(roomId)
+    fun findRoomById(roomId: UUID): RoomEntity? {
+        return roomRepository.findByIdOrNull(roomId)
+    }
+
+    fun findLatest30RoomsByUser(user: UserEntity, gameType: GameType): List<RoomEntity> {
+        return roomRepository.findLatest30RoomsByUser(user.id!!, gameType.toString())
+    }
+
+    fun getCountByUser(user: UserEntity): Long {
+        return roomRepository.countByUser(user.id!!)
+    }
+
+    @Transactional
+    fun save(room: RoomEntity): RoomEntity {
+        return roomRepository.save(room)
     }
 }

@@ -2,7 +2,7 @@ package ru.chess.chessapi.utils
 
 object Constants {
     const val WEBSOCKET_API = "/"
-    const val AUTHENTICATION_API = "/api/authentication"
+    const val AUTHENTICATION_API = "/api/auth"
     const val REGISTRATION_API = "/api/registration"
     const val REGISTRATION_CONFIRMATION_API = "/api/registration/confirmation"
     const val REGISTRATION_CONFIRMATION_PART_API = "/confirmation"

@@ -5,12 +5,12 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.7.12</version>
+		<version>3.3.9</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>ru.chess</groupId>
 	<artifactId>chess-api</artifactId>
-	<version>0.1.1</version>
+	<version>1.1.2</version>
 	<name>chess-api</name>
 	<properties>
 		<!-- technical -->
@@ -21,7 +21,7 @@
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
 		<!-- kotlin -->
-		<kotlin.version>1.8.21</kotlin.version>
+		<kotlin.version>1.9.25</kotlin.version>
 		<kotlin.compiler.incremental>true</kotlin.compiler.incremental>
 		<kotlin-logging.version>3.0.4</kotlin-logging.version>
 
@@ -68,6 +68,14 @@
 			<version>${shedlock.version}</version>
 		</dependency>
 		<!-- core -->
+
+		<!-- additional -->
+		<dependency>
+			<groupId>org.sqids</groupId>
+			<artifactId>sqids-kotlin</artifactId>
+			<version>0.1.1</version>
+		</dependency>
+		<!-- additional -->
 
 		<!-- kotlin -->
 		<dependency>
