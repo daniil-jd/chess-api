@@ -4,7 +4,11 @@ import ru.chess.chessapi.entity.GameHistory
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.exception.UserNotInRoomException
+import ru.chess.chessapi.model.GameStatsProjection
 import ru.chess.chessapi.web.dto.response.MatchHistoryResponse
+import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
+import ru.chess.chessapi.web.websocket.message.enums.GameType
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import ru.chess.chessapi.web.websocket.message.enums.UserGameStatus
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -75,4 +79,17 @@ fun GameHistory.toMatchHistory(): MatchHistoryResponse {
             )
         }
     }
+}
+
+fun RoomEntity.findUserBySide(userSideType: SideType): UserEntity {
+    return if (user1Side == userSideType) user1 else user2
+}
+
+fun GameStatsProjection.toDto() : RoomHistorySearchResponse.MatchStatistic {
+    return RoomHistorySearchResponse.MatchStatistic(
+        gameType = GameType.valueOf(gameType),
+        won = wins,
+        lost = losses,
+        draw = draws
+    )
 }

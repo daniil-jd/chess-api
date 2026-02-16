@@ -3,6 +3,7 @@ package ru.chess.chessapi.service
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.exception.RoomDoesNotExistException
+import ru.chess.chessapi.utils.findUserBySide
 import ru.chess.chessapi.web.dto.request.RoomHistorySaveRequest
 import ru.chess.chessapi.web.dto.response.RoomHistorySaveResponse
 import ru.chess.chessapi.web.websocket.message.enums.SideType
@@ -22,6 +23,7 @@ class RoomHistorySaveService(
             return if (room != null) {
                 // room is not null -> room & user SHOULD exist already
                 val roomEntity = roomService.findRoomById(room) ?: throw RoomDoesNotExistException(room)
+                val userEntity = roomEntity.findUserBySide(userSide)
                 roomEntity.history = history
                 // if ws socket is broken - need to save winner
                 if (roomEntity.winType == null || roomEntity.winnerSide == null) {
@@ -29,7 +31,7 @@ class RoomHistorySaveService(
                     roomEntity.winnerSide = winnerSideFixed
                 }
                 roomService.save(roomEntity)
-                gameHistoryService.saveGameHistoryByRoom(roomEntity)
+                gameHistoryService.saveGameHistoryByRoom(userEntity, roomEntity, opponentType)
 
                 RoomHistorySaveResponse(backendUserId = backendUserId!!, roomId = roomEntity.id!!)
             } else {
@@ -62,7 +64,7 @@ class RoomHistorySaveService(
                     winnerSide = winnerSideFixed,
                     winType = finishType
                 )
-                gameHistoryService.saveGameHistoryByRoom(savedRoom)
+                gameHistoryService.saveGameHistoryByRoom(user, savedRoom, opponentType)
                 RoomHistorySaveResponse(backendUserId = user.id!!, roomId = savedRoom.id!!)
             } else {
                 val whiteBot = userService.findBotByColor(isWhite = true)
@@ -79,7 +81,7 @@ class RoomHistorySaveService(
                     winnerSide = winnerSideFixed,
                     winType = finishType
                 )
-                gameHistoryService.saveGameHistoryByRoom(savedRoom)
+                gameHistoryService.saveGameHistoryByRoom(user, savedRoom, opponentType)
                 RoomHistorySaveResponse(backendUserId = user.id!!, roomId = savedRoom.id!!)
             }
         }

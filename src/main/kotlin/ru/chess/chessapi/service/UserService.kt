@@ -75,7 +75,7 @@ class UserService(
             UserEntity(
                 username = username,
                 signature = signature,
-                rating = 0L
+                totalPoints = 0L
             )
         ).also { logger.info { "User successfully created: $it" } }
     }
@@ -109,5 +109,16 @@ class UserService(
                 }
             }
         }
+    }
+
+    fun increaseTotalPointsToUsersPair(
+        user1: UserEntity,
+        pointToIncrease1: Int,
+        user2: UserEntity,
+        pointToIncrease2: Int
+    ) {
+        user1.totalPoints += pointToIncrease1
+        user2.totalPoints += pointToIncrease2
+        userRepository.saveAll(listOf(user1, user2))
     }
 }

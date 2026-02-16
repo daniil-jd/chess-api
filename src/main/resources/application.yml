@@ -13,6 +13,8 @@ spring:
     url: jdbc:postgresql://${POSTGRESQL_SERVER}/${POSTGRESQL_DATABASE}
     username: ${POSTGRESQL_USERNAME}
     password: ${POSTGRESQL_PASSWORD}
+    hikari:
+      maximum-pool-size: 30
   jpa:
     database: postgresql
     open-in-view: false

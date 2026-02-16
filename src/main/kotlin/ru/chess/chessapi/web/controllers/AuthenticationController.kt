@@ -6,8 +6,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import ru.chess.chessapi.service.DistributorService
-import ru.chess.chessapi.web.dto.security.AuthenticationTokenRequestDto
-import ru.chess.chessapi.web.dto.security.AuthenticationTokenResponseDto
 import ru.chess.chessapi.utils.Constants.AUTHENTICATION_API
 import ru.chess.chessapi.web.dto.request.AuthBySignatureRequest
 import ru.chess.chessapi.web.dto.response.AuthResponse

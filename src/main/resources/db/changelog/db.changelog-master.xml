@@ -9,5 +9,7 @@
     <include file="V1.3__create-v_2-tables.xml" relativeToChangelogFile="true"/>
     <include file="V1.4__add_auth_code_field_to_user2_table.xml" relativeToChangelogFile="true"/>
     <include file="V1.6__create_game_history_table.xml" relativeToChangelogFile="true"/>
+    <include file="V1.7__add_points_to_game_history_table.xml" relativeToChangelogFile="true"/>
+    <include file="V1.8__alter_rating_in_chess_users_2_table.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -9,6 +9,7 @@ import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.exception.ChangeFavouriteMatchException
 import ru.chess.chessapi.exception.RoomDoesNotExistException
 import ru.chess.chessapi.exception.UserNotInRoomException
+import ru.chess.chessapi.model.GameStatsProjection
 import ru.chess.chessapi.repository.GameHistoryRepository
 import ru.chess.chessapi.utils.isUserWinner
 import ru.chess.chessapi.web.dto.request.FavouriteRequest
@@ -16,38 +17,63 @@ import ru.chess.chessapi.web.dto.response.FavouriteRoomResponse
 import ru.chess.chessapi.web.websocket.message.enums.GameType
 import ru.chess.chessapi.web.websocket.message.enums.UserGameStatus
 import java.time.ZoneOffset
+import kotlin.jvm.optionals.getOrNull
 
 @Service
 class GameHistoryService(
     private val gameHistoryRepository: GameHistoryRepository,
-    private val roomService: RoomService
+    private val roomService: RoomService,
+    private val userService: UserService
 ) {
 
     @Transactional
-    fun saveGameHistoryByRoom(room: RoomEntity): List<GameHistory> {
+    fun saveGameHistoryByRoom(user: UserEntity, room: RoomEntity, gameType: GameType): List<GameHistory> {
         return with(room) {
-            when (isUserWinner(room.user1, room)) {
+            val existingGameHistory = gameHistoryRepository.findById(prepareGameHistoryId(user, room)).getOrNull()
+            if (existingGameHistory != null) {
+                return listOfNotNull(existingGameHistory)
+            }
+
+            when (isUserWinner(user, room)) {
                 UserGameStatus.LOSE -> {
+                    val points1 = if (!user1.isBot) calculatePoints(UserGameStatus.LOSE, gameType) else 0
+                    val points2 = if (!user2.isBot) calculatePoints(UserGameStatus.WIN, gameType) else 0
+                    userService.increaseTotalPointsToUsersPair(
+                        user1 = user1, pointToIncrease1 = points1,
+                        user2 = user2, pointToIncrease2 = points2
+                    )
                     saveAll(
                         listOf(
-                            prepareGameHistory(user1, this, UserGameStatus.LOSE),
-                            prepareGameHistory(user2, this, UserGameStatus.WIN)
+                            prepareGameHistory(user1, this, UserGameStatus.LOSE, points1),
+                            prepareGameHistory(user2, this, UserGameStatus.WIN, points2)
                         )
                     )
                 }
                 UserGameStatus.DRAW -> {
+                    val points1 = if (!user1.isBot) calculatePoints(UserGameStatus.DRAW, gameType) else 0
+                    val points2 = if (!user2.isBot) calculatePoints(UserGameStatus.DRAW, gameType) else 0
+                    userService.increaseTotalPointsToUsersPair(
+                        user1 = user1, pointToIncrease1 = points1,
+                        user2 = user2, pointToIncrease2 = points2
+                    )
                     saveAll(
                         listOf(
-                            prepareGameHistory(user1, this, UserGameStatus.DRAW),
-                            prepareGameHistory(user2, this, UserGameStatus.DRAW)
+                            prepareGameHistory(user1, this, UserGameStatus.DRAW, points1),
+                            prepareGameHistory(user2, this, UserGameStatus.DRAW, points2)
                         )
                     )
                 }
                 UserGameStatus.WIN -> {
+                    val points1 = if (!user1.isBot) calculatePoints(UserGameStatus.WIN, gameType) else 0
+                    val points2 = if (!user2.isBot) calculatePoints(UserGameStatus.LOSE, gameType) else 0
+                    userService.increaseTotalPointsToUsersPair(
+                        user1 = user1, pointToIncrease1 = points1,
+                        user2 = user2, pointToIncrease2 = points2
+                    )
                     saveAll(
                         listOf(
-                            prepareGameHistory(user1, this, UserGameStatus.WIN),
-                            prepareGameHistory(user2, this, UserGameStatus.LOSE)
+                            prepareGameHistory(user1, this, UserGameStatus.WIN, points1),
+                            prepareGameHistory(user2, this, UserGameStatus.LOSE,points2)
                         )
                     )
                 }
@@ -100,12 +126,17 @@ class GameHistoryService(
         val gameHistory = gameHistoryRepository.findByUserAndRoom(userEntity, roomEntity)
         if (gameHistory != null) return gameHistory
 
-        val gamesHistory = saveGameHistoryByRoom(roomEntity).associateBy { it.user.id!! }
+
+        val gamesHistory = saveGameHistoryByRoom(userEntity, roomEntity, roomEntity.gameType).associateBy { it.user.id!! }
         return gamesHistory[userEntity.id!!]!!
     }
 
     fun findLast30ByUserAndGameType(user: UserEntity, gameType: GameType): List<GameHistory> {
         return gameHistoryRepository.findLatest30RoomsByUserAndGameType(user.id!!, gameType.toString())
+    }
+
+    fun getGameStatsNative(user: UserEntity, gameType: GameType): GameStatsProjection? {
+        return gameHistoryRepository.getGameStatsNative(user.id!!, gameType.toString())
     }
 
     fun findAllByUserAndFavourite(user: UserEntity, favourite: Boolean): List<GameHistory> {
@@ -116,6 +147,7 @@ class GameHistoryService(
         gameHistoryRepository.save(gameHistory)
     }
 
+    @Transactional
     fun saveAll(gameHistoryList: List<GameHistory>): List<GameHistory> {
         return gameHistoryRepository.saveAllAndFlush(gameHistoryList)
     }
@@ -125,13 +157,29 @@ class GameHistoryService(
         return currentMax + 1
     }
 
+    private fun calculatePoints(userGameStatus: UserGameStatus, gameType: GameType): Int {
+        val pointsMultiplier = when (gameType) {
+            GameType.ONLINE, GameType.PSEUDO -> 2
+            GameType.BOT -> 1
+            else -> 0
+        }
+        val points = when (userGameStatus) {
+            UserGameStatus.LOSE -> 10
+            UserGameStatus.DRAW -> 20
+            UserGameStatus.WIN -> 25
+        }
+        return points * pointsMultiplier
+    }
+
     private fun prepareGameHistory(
         user: UserEntity,
         room: RoomEntity,
-        userGameStatus: UserGameStatus
+        userGameStatus: UserGameStatus,
+        points: Int
     ): GameHistory {
         val gameType = room.gameType
         val matchNumber = calculateNextMatchNumber(user)
+
         return GameHistory(
             id = prepareGameHistoryId(user, room),
             user = user,
@@ -140,6 +188,7 @@ class GameHistoryService(
             gameType = gameType,
             userGameStatus = userGameStatus,
             favourite = false,
+            points = points,
             createdAt = room.createdAt!!.toInstant(ZoneOffset.UTC)
         )
     }
