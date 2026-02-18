@@ -85,6 +85,13 @@ fun RoomEntity.findUserBySide(userSideType: SideType): UserEntity {
     return if (user1Side == userSideType) user1 else user2
 }
 
+fun RoomEntity.findAnotherUser(user: UserEntity): UserEntity {
+    return if (user1.id == user.id!!)
+        user2
+    else
+        user1
+}
+
 fun GameStatsProjection.toDto() : RoomHistorySearchResponse.MatchStatistic {
     return RoomHistorySearchResponse.MatchStatistic(
         gameType = GameType.valueOf(gameType),
