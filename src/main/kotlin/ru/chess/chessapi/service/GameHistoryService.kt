@@ -35,48 +35,47 @@ class GameHistoryService(
                 return listOfNotNull(existingGameHistory)
             }
             val anotherUser = room.findAnotherUser(user)
-            val isAnyoneBot = room.user1.isBot || room.user2.isBot
 
             when (isUserWinner(user, room)) {
                 UserGameStatus.LOSE -> {
-                    val points1 = if (!isAnyoneBot) calculatePoints(UserGameStatus.LOSE, gameType) else 0
-                    val points2 = if (!isAnyoneBot) calculatePoints(UserGameStatus.WIN, gameType) else 0
+                    val loserPoints = if (!user.isBot) calculatePoints(UserGameStatus.LOSE, gameType) else 0
+                    val winnerPoints = if (!anotherUser.isBot) calculatePoints(UserGameStatus.WIN, gameType) else 0
                     userService.increaseTotalPointsToUsersPair(
-                        user1 = user, pointToIncrease1 = points1,
-                        user2 = anotherUser, pointToIncrease2 = points2
+                        user1 = user, pointToIncrease1 = loserPoints,
+                        user2 = anotherUser, pointToIncrease2 = winnerPoints
                     )
                     saveAll(
                         listOf(
-                            prepareGameHistory(user1, this, UserGameStatus.LOSE, points1),
-                            prepareGameHistory(user2, this, UserGameStatus.WIN, points2)
+                            prepareGameHistory(user1, this, UserGameStatus.LOSE, loserPoints),
+                            prepareGameHistory(user2, this, UserGameStatus.WIN, winnerPoints)
                         )
                     )
                 }
                 UserGameStatus.DRAW -> {
-                    val points1 = if (!isAnyoneBot) calculatePoints(UserGameStatus.DRAW, gameType) else 0
-                    val points2 = if (!isAnyoneBot) calculatePoints(UserGameStatus.DRAW, gameType) else 0
+                    val draw1Points = if (!user.isBot) calculatePoints(UserGameStatus.DRAW, gameType) else 0
+                    val draw2Points = if (!anotherUser.isBot) calculatePoints(UserGameStatus.DRAW, gameType) else 0
                     userService.increaseTotalPointsToUsersPair(
-                        user1 = user, pointToIncrease1 = points1,
-                        user2 = anotherUser, pointToIncrease2 = points2
+                        user1 = user, pointToIncrease1 = draw1Points,
+                        user2 = anotherUser, pointToIncrease2 = draw2Points
                     )
                     saveAll(
                         listOf(
-                            prepareGameHistory(user, this, UserGameStatus.DRAW, points1),
-                            prepareGameHistory(anotherUser, this, UserGameStatus.DRAW, points2)
+                            prepareGameHistory(user, this, UserGameStatus.DRAW, draw1Points),
+                            prepareGameHistory(anotherUser, this, UserGameStatus.DRAW, draw2Points)
                         )
                     )
                 }
                 UserGameStatus.WIN -> {
-                    val points1 = if (!isAnyoneBot) calculatePoints(UserGameStatus.WIN, gameType) else 0
-                    val points2 = if (!isAnyoneBot) calculatePoints(UserGameStatus.LOSE, gameType) else 0
+                    val winnerPoints = if (!user.isBot) calculatePoints(UserGameStatus.WIN, gameType) else 0
+                    val loserPoints = if (!anotherUser.isBot) calculatePoints(UserGameStatus.LOSE, gameType) else 0
                     userService.increaseTotalPointsToUsersPair(
-                        user1 = user, pointToIncrease1 = points1,
-                        user2 = anotherUser, pointToIncrease2 = points2
+                        user1 = user, pointToIncrease1 = winnerPoints,
+                        user2 = anotherUser, pointToIncrease2 = loserPoints
                     )
                     saveAll(
                         listOf(
-                            prepareGameHistory(user, this, UserGameStatus.WIN, points1),
-                            prepareGameHistory(anotherUser, this, UserGameStatus.LOSE,points2)
+                            prepareGameHistory(user, this, UserGameStatus.WIN, winnerPoints),
+                            prepareGameHistory(anotherUser, this, UserGameStatus.LOSE,loserPoints)
                         )
                     )
                 }
