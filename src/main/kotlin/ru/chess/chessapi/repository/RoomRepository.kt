@@ -38,4 +38,14 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
         """
     )
     fun countByUser(userId: UUID): Long
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            select * from public.chess_rooms_2 re
+            where re.user_1 = (:userId) and re.win_type is not null
+                or re.user_2 = (:userId) and re.win_type is not null
+        """
+    )
+    fun findByUser(userId: UUID): RoomEntity?
 }

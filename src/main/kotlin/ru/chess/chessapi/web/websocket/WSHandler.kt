@@ -14,6 +14,7 @@ import ru.chess.chessapi.web.websocket.message.enums.MessageType
 import java.io.IOException
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 @Component
 class WSHandler(
@@ -26,6 +27,7 @@ class WSHandler(
 
     private var sessions = ConcurrentHashMap<String, WebSocketSession>()
     private var userIdToSessions = ConcurrentHashMap<UUID, WebSocketSession>()
+    private var userIdToMessagesNotSend = ConcurrentHashMap<UUID, CopyOnWriteArrayList<MessageDto>>()
 
     override fun afterConnectionEstablished(session: WebSocketSession) {
         sessions[session.id] = session
@@ -44,17 +46,15 @@ class WSHandler(
                     val userRoomCandidate = distributorService.createUserRoomCandidate(message)
                     logger.info {
                         "created user-room-candidate, " +
-                            "id: ${userRoomCandidate.id}, " +
-                            "user: ${userRoomCandidate.user}, " +
-                            "actual until: ${userRoomCandidate.activeUntil}"
+                                "id: ${userRoomCandidate.id}, " +
+                                "user: ${userRoomCandidate.user}, " +
+                                "actual until: ${userRoomCandidate.activeUntil}"
                     }
                     putDefaultPrincipalToSessionIfNotExist(session, userRoomCandidate.user.id!!)
 
                     // create room if it possible
                     val rooms = distributorService.searchCandidatesAndCreateRooms()
-                    rooms.forEach {
-                        sendRoomCreatedMessage(it)
-                    }
+                    rooms.forEach { sendRoomCreatedMessage(it) }
                 }
 
                 is MoveMessageDto -> {
@@ -71,10 +71,12 @@ class WSHandler(
                         move = message.move,
                         promotionType = message.promotionType
                     )
-                    userIdToSessions.forEach { (userId, wsSession) ->
-                        if (userId == userToSend.id) {
-                            sendMessageToAnotherUser(messageToAnotherUser, userToSend, wsSession)
-                        }
+                    userIdToSessions[userToSend.id]?.let {
+                        sendMessageToAnotherUser(messageToAnotherUser, userToSend.id!!, it)
+                    } ?: {
+                        // todo нужно вынести это, чтобы не дублировать код
+                        // в случае ошибки сохраняем сообщения и отправляем позже
+                        userIdToMessagesNotSend[userToSend.id]?.add(message)
                     }
                 }
 
@@ -91,7 +93,11 @@ class WSHandler(
                         finishType = message.finishType
                     )
                     userIdToSessions[userToSend.id]?.let {
-                        sendMessageToAnotherUser(messageToAnotherUser, userToSend, it)
+                        sendMessageToAnotherUser(messageToAnotherUser, userToSend.id!!, it)
+                    } ?: {
+                        // todo нужно вынести это, чтобы не дублировать код
+                        // в случае ошибки сохраняем сообщения и отправляем позже
+                        userIdToMessagesNotSend[userToSend.id]?.add(message)
                     }
                 }
 
@@ -107,11 +113,39 @@ class WSHandler(
                     }
                 }
 
+                is RequestForWsRetryDto -> {
+                    // в случае проблем с ws сессией, попытки восстановить сессию
+                    logger.info { "received message type: ${message.messageType}, message body: $message" }
+                    if (userIdToSessions[message.backendUserId!!] != null) {
+                        throw Exception("WS_RETRY, can't retry ws session for user: ${message.backendUserId}")
+                    }
+                    val room = distributorService.findNotFinishedRoomByUserId(message.backendUserId)
+                    logger.info {
+                        "find not finished room (roomId: ${room.id}) for user (userId: ${message.backendUserId}"
+                    }
+                    putDefaultPrincipalToSessionIfNotExist(session, message.backendUserId)
+                    // рассылка потерянных сообщений
+                    userIdToSessions[message.backendUserId]?.let {
+                        userIdToMessagesNotSend[message.backendUserId]?.forEach { unsentMsg ->
+                            sendMessageToAnotherUser(
+                                unsentMsg,
+                                message.backendUserId,
+                                it
+                            )
+                        } ?: logger.info {
+                            "WS_RETRY, there is no unsent messages for retried user, userId = ${message.backendUserId}"
+                        }
+                    } ?: {
+                        logger.warn {
+                            "WS_RETRY, error while sending messages to retried user, userId = ${message.backendUserId}"
+                        }
+                    }
+                }
+
                 else -> {
                     logger.info { "Can't determine type of message: $webSocketMessage" }
                 }
             }
-
         }
     }
 
@@ -122,38 +156,40 @@ class WSHandler(
         val user2Side = room.user2Side
 
         userIdToSessions.forEach { (userId, wsSession) ->
-            try {
-                if (userId == user1.id) {
-                    val message = RoomFoundMessageDto(
-                        messageType = MessageType.ROOM_FOUND,
-                        backendUserId = userId,
-                        room = room.id!!,
-                        opponentName = user2.username,
-                        playerSide = user1Side
-                    )
-                    sendMessageToAnotherUser(message, user1, wsSession)
-                } else if (userId == user2.id) {
-                    val message = RoomFoundMessageDto(
-                        messageType = MessageType.ROOM_FOUND,
-                        backendUserId = userId,
-                        room = room.id!!,
-                        opponentName = user1.username,
-                        playerSide = user2Side
-                    )
-                    sendMessageToAnotherUser(message, user2, wsSession)
-                }
-            } catch (ex: IOException) {
-                logger.error(ex) { "Some exception during sending through web socket: ${ex.message}" }
+            if (userId == user1.id) {
+                val message = RoomFoundMessageDto(
+                    messageType = MessageType.ROOM_FOUND,
+                    backendUserId = userId,
+                    room = room.id!!,
+                    opponentName = user2.username,
+                    playerSide = user1Side
+                )
+                sendMessageToAnotherUser(message, user1.id!!, wsSession)
+            } else if (userId == user2.id) {
+                val message = RoomFoundMessageDto(
+                    messageType = MessageType.ROOM_FOUND,
+                    backendUserId = userId,
+                    room = room.id!!,
+                    opponentName = user1.username,
+                    playerSide = user2Side
+                )
+                sendMessageToAnotherUser(message, user2.id!!, wsSession)
             }
         }
     }
 
-    private fun sendMessageToAnotherUser(message: MessageDto, anotherUser: UserEntity, wsSession: WebSocketSession) {
-        wsSession.sendMessage(TextMessage(mapper.writeValueAsString(message)))
-        logger.info {
-            "successfully sent message to another user: $message, " +
-                "another user: $anotherUser"
+    private fun sendMessageToAnotherUser(message: MessageDto, anotherUserId: UUID, wsSession: WebSocketSession) {
+        try {
+            wsSession.sendMessage(TextMessage(mapper.writeValueAsString(message)))
+        } catch (ex: IOException) {
+            logger.warn {
+                "can't send message $message to user ($anotherUserId), something wrong with ws session " +
+                        "(id: ${wsSession.id}, is open: ${wsSession.isOpen}), error: ${ex.message}"
+            }
+            // в случае ошибки отправки сохраняем сообщение для попытки ретрая в будущем
+            userIdToMessagesNotSend[anotherUserId]?.add(message)
         }
+        logger.info { "successfully sent message to another user: $message, another user: $anotherUserId" }
     }
 
     private fun putDefaultPrincipalToSessionIfNotExist(session: WebSocketSession, userId: UUID) {
@@ -171,21 +207,23 @@ class WSHandler(
     }
 
     override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
-        throw Exception("ws, transport error, session - ${session.id}, principal - ${session.principal?.name}, exception - ${exception.message}")
+        // не обрабатываем разрыв игрока тут
+        logger.error { "ws, transport error, session - ${session.id}, principal - ${session.principal?.name}, exception - ${exception.message}" }
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, closeStatus: CloseStatus) {
+        // обрабатываем разрыв соединения тут
         if (closeStatus.equalsCode(CloseStatus.SERVER_ERROR)) {
             logger.error { "session (${session.id}) already closed before closing." }
         }
-//        sessions.remove(session.id)
-//        session.close(closeStatus)
+        logger.error { "afterConnectionClosed, ws session (${session.id}) is closed, status: $closeStatus" }
 
         val userIdToSessionIterator = userIdToSessions.iterator()
         while (userIdToSessionIterator.hasNext()) {
             val s = userIdToSessionIterator.next()
             if (s.value.id == session.id) {
                 userIdToSessionIterator.remove()
+                sessions.remove(session.id)
                 session.close(closeStatus)
                 break
             }

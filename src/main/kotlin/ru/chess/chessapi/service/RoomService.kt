@@ -94,6 +94,10 @@ class RoomService(
         return roomRepository.countByUser(user.id!!)
     }
 
+    fun findByUser(user: UserEntity): RoomEntity? {
+        return roomRepository.findByUser(user.id!!)
+    }
+
     @Transactional
     fun save(room: RoomEntity): RoomEntity {
         return roomRepository.save(room)

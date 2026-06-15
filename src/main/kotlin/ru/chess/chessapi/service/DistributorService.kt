@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
+import ru.chess.chessapi.exception.RoomDoesNotExistByUserIdException
 import ru.chess.chessapi.exception.RoomDoesNotExistException
 import ru.chess.chessapi.exception.UserDoesNotExistException
 import ru.chess.chessapi.model.CandidatePair
@@ -91,6 +92,7 @@ class DistributorService(
         }
     }
 
+    @Transactional
     fun createRoomWithCandidates(
         user1: UserEntity, side1: SideType, user2: UserEntity, side2: SideType
     ): RoomEntity {
@@ -280,5 +282,10 @@ class DistributorService(
             user.username = newName
             userService.save(user)
         }
+    }
+
+    fun findNotFinishedRoomByUserId(backendUserId: UUID): RoomEntity {
+        val user = userService.findById(backendUserId) ?: throw UserDoesNotExistException(backendUserId.toString())
+        return roomService.findByUser(user) ?: throw RoomDoesNotExistByUserIdException(backendUserId)
     }
 }
