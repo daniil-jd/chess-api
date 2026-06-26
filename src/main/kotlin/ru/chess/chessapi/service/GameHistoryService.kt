@@ -1,5 +1,6 @@
 package ru.chess.chessapi.service
 
+import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.GameHistory
@@ -27,6 +28,8 @@ class GameHistoryService(
     private val userService: UserService
 ) {
 
+    private val log = KotlinLogging.logger {}
+
     @Transactional
     fun saveGameHistoryByRoom(user: UserEntity, room: RoomEntity, gameType: GameType): List<GameHistory> {
         return with(room) {
@@ -46,8 +49,8 @@ class GameHistoryService(
                     )
                     saveAll(
                         listOf(
-                            prepareGameHistory(user1, this, UserGameStatus.LOSE, loserPoints),
-                            prepareGameHistory(user2, this, UserGameStatus.WIN, winnerPoints)
+                            prepareGameHistory(user, this, UserGameStatus.LOSE, loserPoints),
+                            prepareGameHistory(anotherUser, this, UserGameStatus.WIN, winnerPoints)
                         )
                     )
                 }
@@ -192,7 +195,9 @@ class GameHistoryService(
             favourite = false,
             points = points,
             createdAt = room.createdAt!!.toInstant(ZoneOffset.UTC)
-        )
+        ).also {
+            log.info { "game history to save: $it" }
+        }
     }
 
     private fun prepareGameHistoryId(user: UserEntity, room: RoomEntity) = GameHistoryId(

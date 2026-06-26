@@ -73,10 +73,14 @@ class WSHandler(
                     )
                     userIdToSessions[userToSend.id]?.let {
                         sendMessageToAnotherUser(messageToAnotherUser, userToSend.id!!, it)
-                    } ?: {
+                    } ?: run {
                         // todo нужно вынести это, чтобы не дублировать код
                         // в случае ошибки сохраняем сообщения и отправляем позже
-                        userIdToMessagesNotSend[userToSend.id]?.add(message)
+                        logger.warn {
+                            "session for userId: ${userToSend.id} not found. " +
+                                "need to reconnect via ws for user"
+                        }
+                        userIdToMessagesNotSend.computeIfAbsent(userToSend.id!!) { CopyOnWriteArrayList() }.add(message)
                     }
                 }
 
@@ -94,11 +98,10 @@ class WSHandler(
                     )
                     userIdToSessions[userToSend.id]?.let {
                         sendMessageToAnotherUser(messageToAnotherUser, userToSend.id!!, it)
-                    } ?: {
+                    } ?:
                         // todo нужно вынести это, чтобы не дублировать код
                         // в случае ошибки сохраняем сообщения и отправляем позже
                         userIdToMessagesNotSend[userToSend.id]?.add(message)
-                    }
                 }
 
                 is RequestForRoomCancelDto -> {
@@ -117,7 +120,7 @@ class WSHandler(
                     // в случае проблем с ws сессией, попытки восстановить сессию
                     logger.info { "received message type: ${message.messageType}, message body: $message" }
                     if (userIdToSessions[message.backendUserId!!] != null) {
-                        throw Exception("WS_RETRY, can't retry ws session for user: ${message.backendUserId}")
+                        throw Exception("WS_RETRY, can't retry ws session for user: ${message.backendUserId}") // todo
                     }
                     val room = distributorService.findNotFinishedRoomByUserId(message.backendUserId)
                     logger.info {

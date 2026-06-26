@@ -98,6 +98,10 @@ class RoomService(
         return roomRepository.findByUser(user.id!!)
     }
 
+    fun findNotFinishedRoomByUser(user: UserEntity): RoomEntity? {
+        return roomRepository.findNotFinishedRoomByUser(user.id!!)
+    }
+
     @Transactional
     fun save(room: RoomEntity): RoomEntity {
         return roomRepository.save(room)

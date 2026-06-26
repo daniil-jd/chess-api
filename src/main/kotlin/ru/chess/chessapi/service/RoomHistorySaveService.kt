@@ -1,5 +1,6 @@
 package ru.chess.chessapi.service
 
+import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.exception.RoomDoesNotExistException
@@ -15,10 +16,17 @@ class RoomHistorySaveService(
     private val gameHistoryService: GameHistoryService
 ) {
 
+    private val log = KotlinLogging.logger {}
+
     @Transactional
     fun saveHistory(request: RoomHistorySaveRequest): RoomHistorySaveResponse {
+        log.info { "request for save history: $request" }
         with(request) {
             val winnerSideFixed = if (!winnerSide.isNullOrBlank()) SideType.valueOf(winnerSide) else null
+            log.info {
+                "save history, roomId: ${request.room}, detected winnerSide: $winnerSideFixed, " +
+                    "winnerSide from request: $winnerSide"
+            }
 
             return if (room != null) {
                 // room is not null -> room & user SHOULD exist already
@@ -27,6 +35,9 @@ class RoomHistorySaveService(
                 roomEntity.history = history
                 // if ws socket is broken - need to save winner
                 if (roomEntity.winType == null || roomEntity.winnerSide == null) {
+                    log.info {
+                        "save history, set winType ($finishType) & winnerSide ($winnerSideFixed) for roomId: $room"
+                    }
                     roomEntity.winType = finishType
                     roomEntity.winnerSide = winnerSideFixed
                 }

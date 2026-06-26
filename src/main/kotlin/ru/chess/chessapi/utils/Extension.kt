@@ -14,9 +14,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 fun isUserWinner(user: UserEntity, room: RoomEntity): UserGameStatus {
-    val userSide = if (room.user1 == user) {
+    val userSide = if (room.user1.id == user.id) {
         room.user1Side
-    } else if (room.user2 == user) {
+    } else if (room.user2.id == user.id) {
         room.user2Side
     } else {
         throw UserNotInRoomException(user.id!!, room.id!!)

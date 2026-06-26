@@ -48,4 +48,14 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
         """
     )
     fun findByUser(userId: UUID): RoomEntity?
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            select * from public.chess_rooms_2 re
+            where re.user_1 = (:userId) and re.win_type is null
+                or re.user_2 = (:userId) and re.win_type is null
+        """
+    )
+    fun findNotFinishedRoomByUser(userId: UUID): RoomEntity?
 }
