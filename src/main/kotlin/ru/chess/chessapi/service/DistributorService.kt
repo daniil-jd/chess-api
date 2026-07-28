@@ -288,4 +288,8 @@ class DistributorService(
         val user = userService.findById(backendUserId) ?: throw UserDoesNotExistException(backendUserId.toString())
         return roomService.findNotFinishedRoomByUser(user) ?: throw RoomDoesNotExistByUserIdException(backendUserId)
     }
+
+    fun findRoomById(roomId: UUID): RoomEntity {
+        return roomService.findRoomById(roomId) ?: throw RoomDoesNotExistException(roomId)
+    }
 }

@@ -7,11 +7,15 @@ import ru.chess.chessapi.exception.UserNotInRoomException
 import ru.chess.chessapi.model.GameStatsProjection
 import ru.chess.chessapi.web.dto.response.MatchHistoryResponse
 import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
+import ru.chess.chessapi.web.websocket.message.Pong
 import ru.chess.chessapi.web.websocket.message.enums.GameType
+import ru.chess.chessapi.web.websocket.message.enums.MessageType
+import ru.chess.chessapi.web.websocket.message.enums.PingPongStatus
 import ru.chess.chessapi.web.websocket.message.enums.SideType
 import ru.chess.chessapi.web.websocket.message.enums.UserGameStatus
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 fun isUserWinner(user: UserEntity, room: RoomEntity): UserGameStatus {
     val userSide = if (room.user1.id == user.id) {
@@ -92,11 +96,39 @@ fun RoomEntity.findAnotherUser(user: UserEntity): UserEntity {
         user1
 }
 
-fun GameStatsProjection.toDto() : RoomHistorySearchResponse.MatchStatistic {
+fun GameStatsProjection.toDto(): RoomHistorySearchResponse.MatchStatistic {
     return RoomHistorySearchResponse.MatchStatistic(
         gameType = GameType.valueOf(gameType),
         won = wins,
         lost = losses,
         draw = draws
+    )
+}
+
+fun preparePongMessage(
+    room: RoomEntity,
+    userId: UUID,
+    isUser1Online: Boolean,
+    isUser2Online: Boolean
+): Pong {
+    val isUser1IsWhite = room.user1Side == SideType.WHITE
+
+    val whiteStatus = when {
+        isUser1Online && isUser1IsWhite -> PingPongStatus.ONLINE
+        isUser2Online && !isUser1IsWhite -> PingPongStatus.ONLINE
+        else -> PingPongStatus.OFFLINE
+    }
+    val blackStatus = when {
+        isUser1Online && !isUser1IsWhite -> PingPongStatus.ONLINE
+        isUser2Online && isUser1IsWhite -> PingPongStatus.ONLINE
+        else -> PingPongStatus.OFFLINE
+    }
+
+    return Pong(
+        messageType = MessageType.PONG,
+        backendUserId = userId,
+        roomId = room.id!!,
+        whiteStatus = whiteStatus,
+        blackStatus = blackStatus
     )
 }

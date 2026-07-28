@@ -6,5 +6,8 @@ enum class MessageType {
     CHESS_MOVE,
     MATCH_FINISHED,
     REQUEST_FOR_ROOM_CANCEL,
-    WS_RETRY
+    WS_RETRY,
+    // для маркеров состояния
+    PING,
+    PONG
 }

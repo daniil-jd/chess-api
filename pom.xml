@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>ru.chess</groupId>
 	<artifactId>chess-api</artifactId>
-	<version>1.3.0</version>
+	<version>1.3.3</version>
 	<name>chess-api</name>
 	<properties>
 		<!-- technical -->

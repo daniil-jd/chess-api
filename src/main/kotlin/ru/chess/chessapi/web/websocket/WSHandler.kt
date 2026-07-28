@@ -6,9 +6,9 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.socket.*
 import ru.chess.chessapi.entity.RoomEntity
-import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.service.DistributorService
 import ru.chess.chessapi.service.MessageConvertorService
+import ru.chess.chessapi.utils.preparePongMessage
 import ru.chess.chessapi.web.websocket.message.*
 import ru.chess.chessapi.web.websocket.message.enums.MessageType
 import java.io.IOException
@@ -71,17 +71,7 @@ class WSHandler(
                         move = message.move,
                         promotionType = message.promotionType
                     )
-                    userIdToSessions[userToSend.id]?.let {
-                        sendMessageToAnotherUser(messageToAnotherUser, userToSend.id!!, it)
-                    } ?: run {
-                        // todo нужно вынести это, чтобы не дублировать код
-                        // в случае ошибки сохраняем сообщения и отправляем позже
-                        logger.warn {
-                            "session for userId: ${userToSend.id} not found. " +
-                                "need to reconnect via ws for user"
-                        }
-                        userIdToMessagesNotSend.computeIfAbsent(userToSend.id!!) { CopyOnWriteArrayList() }.add(message)
-                    }
+                    sendMessageIfSessionExist(userToSend.id!!, messageToAnotherUser)
                 }
 
                 is MatchFinishedMessageDto -> {
@@ -96,12 +86,7 @@ class WSHandler(
                         winnerSide = message.winnerSide,
                         finishType = message.finishType
                     )
-                    userIdToSessions[userToSend.id]?.let {
-                        sendMessageToAnotherUser(messageToAnotherUser, userToSend.id!!, it)
-                    } ?:
-                        // todo нужно вынести это, чтобы не дублировать код
-                        // в случае ошибки сохраняем сообщения и отправляем позже
-                        userIdToMessagesNotSend[userToSend.id]?.add(message)
+                    sendMessageIfSessionExist(userToSend.id!!, messageToAnotherUser)
                 }
 
                 is RequestForRoomCancelDto -> {
@@ -120,7 +105,7 @@ class WSHandler(
                     // в случае проблем с ws сессией, попытки восстановить сессию
                     logger.info { "received message type: ${message.messageType}, message body: $message" }
                     if (userIdToSessions[message.backendUserId!!] != null) {
-                        throw Exception("WS_RETRY, can't retry ws session for user: ${message.backendUserId}") // todo
+                        throw Exception("WS_RETRY, can't retry ws session for user: ${message.backendUserId}")
                     }
                     val room = distributorService.findNotFinishedRoomByUserId(message.backendUserId)
                     logger.info {
@@ -130,7 +115,7 @@ class WSHandler(
                     // рассылка потерянных сообщений
                     userIdToSessions[message.backendUserId]?.let {
                         userIdToMessagesNotSend[message.backendUserId]?.forEach { unsentMsg ->
-                            sendMessageToAnotherUser(
+                            sendMessage(
                                 unsentMsg,
                                 message.backendUserId,
                                 it
@@ -143,6 +128,20 @@ class WSHandler(
                             "WS_RETRY, error while sending messages to retried user, userId = ${message.backendUserId}"
                         }
                     }
+                }
+
+                is Ping -> {
+                    // опрос клиента, статусы игроков в партии
+                    logger.info { "received message type: ${message.messageType}, message body: $message" }
+                    val room = distributorService.findRoomById(message.roomId)
+
+                    val pongMessage = preparePongMessage(
+                        room = room,
+                        userId = message.backendUserId,
+                        isUser1Online = userIdToSessions[room.user1.id!!] != null,
+                        isUser2Online = userIdToSessions[room.user2.id!!] != null,
+                    )
+                    sendMessageIfSessionExist(message.backendUserId, pongMessage)
                 }
 
                 else -> {
@@ -167,7 +166,7 @@ class WSHandler(
                     opponentName = user2.username,
                     playerSide = user1Side
                 )
-                sendMessageToAnotherUser(message, user1.id!!, wsSession)
+                sendMessage(message, user1.id!!, wsSession)
             } else if (userId == user2.id) {
                 val message = RoomFoundMessageDto(
                     messageType = MessageType.ROOM_FOUND,
@@ -176,23 +175,36 @@ class WSHandler(
                     opponentName = user1.username,
                     playerSide = user2Side
                 )
-                sendMessageToAnotherUser(message, user2.id!!, wsSession)
+                sendMessage(message, user2.id!!, wsSession)
             }
         }
     }
 
-    private fun sendMessageToAnotherUser(message: MessageDto, anotherUserId: UUID, wsSession: WebSocketSession) {
+    private fun sendMessageIfSessionExist(userIdToSend: UUID, message: MessageDto) {
+        userIdToSessions[userIdToSend]?.let {
+            sendMessage(message, userIdToSend, it)
+        } ?: run {
+            // в случае ошибки сохраняем сообщения и отправляем позже
+            logger.warn {
+                "session for userId: $userIdToSend not found. " +
+                    "need to reconnect via ws for user"
+            }
+            userIdToMessagesNotSend.computeIfAbsent(userIdToSend) { CopyOnWriteArrayList() }.add(message)
+        }
+    }
+
+    private fun sendMessage(message: MessageDto, userId: UUID, wsSession: WebSocketSession) {
         try {
             wsSession.sendMessage(TextMessage(mapper.writeValueAsString(message)))
         } catch (ex: IOException) {
             logger.warn {
-                "can't send message $message to user ($anotherUserId), something wrong with ws session " +
+                "can't send message $message to user ($userId), something wrong with ws session " +
                         "(id: ${wsSession.id}, is open: ${wsSession.isOpen}), error: ${ex.message}"
             }
             // в случае ошибки отправки сохраняем сообщение для попытки ретрая в будущем
-            userIdToMessagesNotSend[anotherUserId]?.add(message)
+            userIdToMessagesNotSend.computeIfAbsent(userId) { CopyOnWriteArrayList() }.add(message)
         }
-        logger.info { "successfully sent message to another user: $message, another user: $anotherUserId" }
+        logger.info { "successfully sent message to user: $message, user: $userId" }
     }
 
     private fun putDefaultPrincipalToSessionIfNotExist(session: WebSocketSession, userId: UUID) {

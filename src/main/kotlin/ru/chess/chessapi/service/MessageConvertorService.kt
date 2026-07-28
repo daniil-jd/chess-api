@@ -20,7 +20,8 @@ class MessageConvertorService(
             getMoveMessage(message) ?:
             getMatchFinishedMessage(message) ?:
             getRequestForRoomCancelMessage(message) ?:
-            getWsRetryMessage(message)
+            getWsRetryMessage(message) ?:
+            getPingMessage(message)
     }
 
     private fun getRequestForRoomMessage(message: TextMessage): RequestForRoomMessageDto? {
@@ -82,6 +83,17 @@ class MessageConvertorService(
         return try {
             val message = mapper.readValue<RequestForWsRetryDto>(message.payload)
             if (message.messageType == MessageType.WS_RETRY)
+                message
+            else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun getPingMessage(message: TextMessage): Ping? {
+        return try {
+            val message = mapper.readValue<Ping>(message.payload)
+            if (message.messageType == MessageType.PING)
                 message
             else null
         } catch (_: Exception) {
