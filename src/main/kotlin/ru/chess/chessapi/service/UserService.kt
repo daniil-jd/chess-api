@@ -50,7 +50,7 @@ class UserService(
             // signature != null && backendUserId != null
             else -> {
                 // search or else create
-                findBySignature(filteredSignature!!) ?: findById(backendUserId!!)
+                findById(backendUserId!!) ?: findBySignature(filteredSignature!!)
                 ?: createUser(username = username, signature = filteredSignature)
             }
         }

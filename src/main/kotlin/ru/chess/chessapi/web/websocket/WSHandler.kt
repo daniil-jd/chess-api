@@ -105,27 +105,30 @@ class WSHandler(
                     // в случае проблем с ws сессией, попытки восстановить сессию
                     logger.info { "received message type: ${message.messageType}, message body: $message" }
                     if (userIdToSessions[message.backendUserId!!] != null) {
-                        throw Exception("WS_RETRY, can't retry ws session for user: ${message.backendUserId}")
-                    }
-                    val room = distributorService.findNotFinishedRoomByUserId(message.backendUserId)
-                    logger.info {
-                        "find not finished room (roomId: ${room.id}) for user (userId: ${message.backendUserId}"
-                    }
-                    putDefaultPrincipalToSessionIfNotExist(session, message.backendUserId)
-                    // рассылка потерянных сообщений
-                    userIdToSessions[message.backendUserId]?.let {
-                        userIdToMessagesNotSend[message.backendUserId]?.forEach { unsentMsg ->
-                            sendMessage(
-                                unsentMsg,
-                                message.backendUserId,
-                                it
-                            )
-                        } ?: logger.info {
-                            "WS_RETRY, there is no unsent messages for retried user, userId = ${message.backendUserId}"
-                        }
-                    } ?: {
                         logger.warn {
-                            "WS_RETRY, error while sending messages to retried user, userId = ${message.backendUserId}"
+                            "WS_RETRY, can't retry ws session for user: ${message.backendUserId}, user connected"
+                        }
+                    } else {
+                        val room = distributorService.findNotFinishedRoomByUserId(message.backendUserId) // todo потенциальная проблема
+                        logger.info {
+                            "find not finished room (roomId: ${room.id}) for user (userId: ${message.backendUserId}"
+                        }
+                        putDefaultPrincipalToSessionIfNotExist(session, message.backendUserId)
+                        // рассылка потерянных сообщений
+                        userIdToSessions[message.backendUserId]?.let {
+                            userIdToMessagesNotSend[message.backendUserId]?.forEach { unsentMsg ->
+                                sendMessage(
+                                    unsentMsg,
+                                    message.backendUserId,
+                                    it
+                                )
+                            } ?: logger.info {
+                                "WS_RETRY, there is no unsent messages for retried user, userId = ${message.backendUserId}"
+                            }
+                        } ?: {
+                            logger.warn {
+                                "WS_RETRY, error while sending messages to retried user, userId = ${message.backendUserId}"
+                            }
                         }
                     }
                 }
@@ -224,6 +227,7 @@ class WSHandler(
     override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
         // не обрабатываем разрыв игрока тут
         logger.error { "ws, transport error, session - ${session.id}, principal - ${session.principal?.name}, exception - ${exception.message}" }
+        removeSessionFromMaps(session, CloseStatus.SERVER_ERROR)
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, closeStatus: CloseStatus) {
@@ -233,6 +237,10 @@ class WSHandler(
         }
         logger.error { "afterConnectionClosed, ws session (${session.id}) is closed, status: $closeStatus" }
 
+        removeSessionFromMaps(session, closeStatus)
+    }
+
+    private fun removeSessionFromMaps(session: WebSocketSession, closeStatus: CloseStatus) {
         val userIdToSessionIterator = userIdToSessions.iterator()
         while (userIdToSessionIterator.hasNext()) {
             val s = userIdToSessionIterator.next()
