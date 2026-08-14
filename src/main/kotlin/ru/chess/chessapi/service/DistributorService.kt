@@ -53,7 +53,8 @@ class DistributorService(
                 val sideA = candidates[i].userSide
                 for (j in i + 1 until candidates.size) {
                     val sideB = candidates[j].userSide
-                    if ((sideB == findOppositeSide(sideA) || sideB == SideType.RANDOM) &&
+                    if (
+                        (findOppositeSides(sideA).contains(sideB) || sideB == SideType.RANDOM) &&
                         !(temp.contains(candidates[j]) || temp.contains(candidates[i]))
                     ) {
                         pairsToCreate.add(CandidatePair(candidates[j], candidates[i]))
@@ -74,6 +75,22 @@ class DistributorService(
             }
         }
         return emptyList()
+    }
+
+    private fun findOppositeSides(side: SideType): List<SideType> {
+        return when (side) {
+            SideType.WHITE -> {
+                listOf(SideType.BLACK, SideType.RANDOM)
+            }
+
+            SideType.BLACK -> {
+                listOf(SideType.WHITE, SideType.RANDOM)
+            }
+
+            SideType.RANDOM -> {
+                listOf(SideType.WHITE, SideType.BLACK, SideType.RANDOM)
+            }
+        }
     }
 
     private fun findOppositeSide(side: SideType): SideType {

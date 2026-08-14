@@ -5,9 +5,10 @@ import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.UUID
 
 data class RoomFoundMessageDto(
-    val messageType: MessageType,
+    override val messageType: MessageType,
     val backendUserId: UUID,
     val room: UUID,
     val opponentName: String,
-    val playerSide: SideType
+    val playerSide: SideType,
+    val sessionId: String
 ): MessageDto

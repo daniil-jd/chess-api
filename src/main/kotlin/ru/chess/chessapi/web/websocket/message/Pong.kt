@@ -5,7 +5,7 @@ import ru.chess.chessapi.web.websocket.message.enums.PingPongStatus
 import java.util.*
 
 data class Pong(
-    val messageType: MessageType,
+    override val messageType: MessageType,
     val backendUserId: UUID,
     val roomId: UUID,
     val whiteStatus: PingPongStatus,

@@ -6,7 +6,7 @@ import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.UUID
 
 data class MoveMessageDto(
-    val messageType: MessageType,
+    override val messageType: MessageType,
     val backendUserId: UUID,
     val room: UUID,
     val sideOfMove: SideType,

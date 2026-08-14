@@ -13,6 +13,7 @@ class UserRoomCandidateService(
     private val userRoomCandidateRepository: UserRoomCandidateRepository
 ) {
     companion object {
+        const val ZERO_PAGE = 0
         const val BATCH_SIZE = 30
     }
 
@@ -51,10 +52,10 @@ class UserRoomCandidateService(
     fun findActiveUserRoomCandidates(): MutableList<UserRoomCandidateEntity> {
         val currentTime = LocalDateTime.now()
         var slice = userRoomCandidateRepository.findAllByActiveUntilIsGreaterThanEqual(
-            currentTime, PageRequest.of(0, BATCH_SIZE)
+            currentTime, PageRequest.of(ZERO_PAGE, BATCH_SIZE)
         )
         val result = slice.content
-        while (slice.hasNext()) {
+        while (slice.hasNext()) { // todo надо ли все грузить? если первые 30 только черные, надо ли грузить еще?
             slice = userRoomCandidateRepository.findAllByActiveUntilIsGreaterThanEqual(currentTime, slice.nextPageable())
             result.addAll(slice.content)
         }

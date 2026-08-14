@@ -7,6 +7,7 @@ enum class MessageType {
     MATCH_FINISHED,
     REQUEST_FOR_ROOM_CANCEL,
     WS_RETRY,
+    NEW_WS,
     // для маркеров состояния
     PING,
     PONG

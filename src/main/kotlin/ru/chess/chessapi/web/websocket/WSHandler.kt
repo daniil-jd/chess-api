@@ -38,117 +38,125 @@ class WSHandler(
         if (webSocketMessage is TextMessage) {
             logger.info { "receive text message: ${webSocketMessage.payload}" }
 
-            // todo: log before this block
-            // todo map dto only by TYPE!
-            when (val message = messageConvertorService.convertMessageDtoFromTextMessage(webSocketMessage)) {
-                is RequestForRoomMessageDto -> {
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    val userRoomCandidate = distributorService.createUserRoomCandidate(message)
-                    logger.info {
-                        "created user-room-candidate, " +
-                                "id: ${userRoomCandidate.id}, " +
-                                "user: ${userRoomCandidate.user}, " +
-                                "actual until: ${userRoomCandidate.activeUntil}"
+            val message = messageConvertorService.convertMessageDtoFromTextMessage(webSocketMessage)
+            if (message == null) {
+                logger.warn {
+                    "received message, that can't be converted: ${webSocketMessage.payload}"
+                }
+                return
+            }
+            logger.info { "received message type: ${message.messageType}, message body: ${webSocketMessage.payload}" }
+            // todo подумать как переделать с messageType вместо проверки класса
+            if (message is RequestForRoomMessageDto) {
+                // для этого типа возможна неактивная сессия
+                val userRoomCandidate = distributorService.createUserRoomCandidate(message)
+                logger.info {
+                    "created user-room-candidate, " +
+                        "id: ${userRoomCandidate.id}, " +
+                        "user: ${userRoomCandidate.user}, " +
+                        "actual until: ${userRoomCandidate.activeUntil}"
+                }
+                saveSessionAndSendMessage(userRoomCandidate.user.id!!, session)
+
+                // create room if it possible
+                val rooms = distributorService.searchCandidatesAndCreateRooms()
+                rooms.forEach { sendRoomCreatedMessage(it) }
+            } else if (message is RequestForWsRetryDto) {
+                // для этого типа возможна неактивная сессия
+                // в случае проблем с ws сессией, попытки восстановить сессию
+                val existedSession = userIdToSessions[message.backendUserId!!]
+                if (existedSession != null) {
+                    logger.warn {
+                        "WS_RETRY, session for user: ${message.backendUserId} exist, session $existedSession will be removed"
                     }
-                    putDefaultPrincipalToSessionIfNotExist(session, userRoomCandidate.user.id!!)
-
-                    // create room if it possible
-                    val rooms = distributorService.searchCandidatesAndCreateRooms()
-                    rooms.forEach { sendRoomCreatedMessage(it) }
-                }
-
-                is MoveMessageDto -> {
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    val userToSend = distributorService.updateRoomHistoryAndReturnAnotherUser(
-                        message.room, message.sideOfMove, message.move, message.promotionType
-                    )
-                    logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
-                    val messageToAnotherUser = MoveMessageDto(
-                        messageType = MessageType.CHESS_MOVE,
-                        backendUserId = userToSend.id!!,
-                        room = message.room,
-                        sideOfMove = message.sideOfMove,
-                        move = message.move,
-                        promotionType = message.promotionType
-                    )
-                    sendMessageIfSessionExist(userToSend.id!!, messageToAnotherUser)
-                }
-
-                is MatchFinishedMessageDto -> {
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    val userToSend = distributorService.updateRoomHistoryAndReturnAnotherUserWhenMatchIsOver(
-                        message.room, message.winnerSide, message.finishType
-                    )
-                    logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
-                    val messageToAnotherUser = MatchFinishedMessageDto(
-                        messageType = MessageType.MATCH_FINISHED,
-                        room = message.room,
-                        winnerSide = message.winnerSide,
-                        finishType = message.finishType
-                    )
-                    sendMessageIfSessionExist(userToSend.id!!, messageToAnotherUser)
-                }
-
-                is RequestForRoomCancelDto -> {
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    if (message.messageType == MessageType.REQUEST_FOR_ROOM_CANCEL) {
-                        val userId = getUserIdBySession(session)
-                        if (userId != null) {
-                            distributorService.cancelRoomCandidate(userId)
-                        } else {
-                            logger.warn { "Empty userId, can't find by session." }
-                        }
+                    removeOldSessionFromMaps(existedSession.id)
+                    logger.warn {
+                        "WS_RETRY, session for user: ${message.backendUserId} removed"
                     }
                 }
 
-                is RequestForWsRetryDto -> {
-                    // в случае проблем с ws сессией, попытки восстановить сессию
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    if (userIdToSessions[message.backendUserId!!] != null) {
-                        logger.warn {
-                            "WS_RETRY, can't retry ws session for user: ${message.backendUserId}, user connected"
-                        }
-                    } else {
-                        val room = distributorService.findNotFinishedRoomByUserId(message.backendUserId) // todo потенциальная проблема
-                        logger.info {
-                            "find not finished room (roomId: ${room.id}) for user (userId: ${message.backendUserId}"
-                        }
-                        putDefaultPrincipalToSessionIfNotExist(session, message.backendUserId)
-                        // рассылка потерянных сообщений
-                        userIdToSessions[message.backendUserId]?.let {
-                            userIdToMessagesNotSend[message.backendUserId]?.forEach { unsentMsg ->
-                                sendMessage(
-                                    unsentMsg,
-                                    message.backendUserId,
-                                    it
-                                )
-                            } ?: logger.info {
-                                "WS_RETRY, there is no unsent messages for retried user, userId = ${message.backendUserId}"
+                val room = distributorService.findNotFinishedRoomByUserId(message.backendUserId) // todo потенциальная проблема
+                logger.info {
+                    "find not finished room (roomId: ${room.id}) for user (userId: ${message.backendUserId}"
+                }
+                saveSessionAndSendMessage(message.backendUserId, session)
+                // рассылка потерянных сообщений
+                userIdToSessions[message.backendUserId]?.let {
+                    userIdToMessagesNotSend[message.backendUserId]?.forEach { unsentMsg ->
+                        sendMessage(
+                            message.backendUserId,
+                            unsentMsg,
+                            it
+                        )
+                    } ?: logger.info {
+                        "WS_RETRY, there is no unsent messages for retried user, userId = ${message.backendUserId}"
+                    }
+                } ?: {
+                    logger.warn {
+                        "WS_RETRY, error while sending messages to retried user, userId = ${message.backendUserId}"
+                    }
+                }
+            } else {
+                // для остальных типов сообщений сессия должна быть активна
+                if (!isUserSessionActive(session, webSocketMessage.payload)) return
+
+                when(message) {
+                    is MoveMessageDto -> {
+                        val userToSend = distributorService.updateRoomHistoryAndReturnAnotherUser(
+                            message.room, message.sideOfMove, message.move, message.promotionType
+                        )
+                        logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
+                        val messageToAnotherUser = MoveMessageDto(
+                            messageType = MessageType.CHESS_MOVE,
+                            backendUserId = userToSend.id!!,
+                            room = message.room,
+                            sideOfMove = message.sideOfMove,
+                            move = message.move,
+                            promotionType = message.promotionType
+                        )
+                        sendMessageIfSessionExist(userToSend.id!!, messageToAnotherUser)
+                    }
+
+                    is MatchFinishedMessageDto -> {
+                        val userToSend = distributorService.updateRoomHistoryAndReturnAnotherUserWhenMatchIsOver(
+                            message.room, message.winnerSide, message.finishType
+                        )
+                        logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
+                        val messageToAnotherUser = MatchFinishedMessageDto(
+                            messageType = MessageType.MATCH_FINISHED,
+                            room = message.room,
+                            winnerSide = message.winnerSide,
+                            finishType = message.finishType
+                        )
+                        sendMessageIfSessionExist(userToSend.id!!, messageToAnotherUser)
+                    }
+
+                    is RequestForRoomCancelDto -> {
+                        if (message.messageType == MessageType.REQUEST_FOR_ROOM_CANCEL) {
+                            val userId = getUserIdBySession(session)
+                            if (userId != null) {
+                                distributorService.cancelRoomCandidate(userId)
+                            } else {
+                                logger.warn { "Empty userId, can't find by session." }
                             }
-                        } ?: {
-                            logger.warn {
-                                "WS_RETRY, error while sending messages to retried user, userId = ${message.backendUserId}"
-                            }
                         }
                     }
-                }
 
-                is Ping -> {
-                    // опрос клиента, статусы игроков в партии
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    val room = distributorService.findRoomById(message.roomId)
+                    is Ping -> {
+                        // опрос клиента, статусы игроков в партии
+                        val room = distributorService.findRoomById(message.roomId)
 
-                    val pongMessage = preparePongMessage(
-                        room = room,
-                        userId = message.backendUserId,
-                        isUser1Online = userIdToSessions[room.user1.id!!] != null,
-                        isUser2Online = userIdToSessions[room.user2.id!!] != null,
-                    )
-                    sendMessageIfSessionExist(message.backendUserId, pongMessage)
-                }
-
-                else -> {
-                    logger.info { "Can't determine type of message: $webSocketMessage" }
+                        val pongMessage = preparePongMessage(
+                            room = room,
+                            userId = message.backendUserId,
+                            isUser1Online = userIdToSessions[room.user1.id!!] != null,
+                            isUser2Online = userIdToSessions[room.user2.id!!] != null,
+                        )
+                        sendMessageIfSessionExist(message.backendUserId, pongMessage)
+                    }
+                    else -> {
+                        logger.info { "Can't determine type of message: $webSocketMessage" }
+                    }
                 }
             }
         }
@@ -167,25 +175,27 @@ class WSHandler(
                     backendUserId = userId,
                     room = room.id!!,
                     opponentName = user2.username,
-                    playerSide = user1Side
+                    playerSide = user1Side,
+                    sessionId = wsSession.id
                 )
-                sendMessage(message, user1.id!!, wsSession)
+                sendMessage(user1.id!!, message, wsSession)
             } else if (userId == user2.id) {
                 val message = RoomFoundMessageDto(
                     messageType = MessageType.ROOM_FOUND,
                     backendUserId = userId,
                     room = room.id!!,
                     opponentName = user1.username,
-                    playerSide = user2Side
+                    playerSide = user2Side,
+                    sessionId = wsSession.id
                 )
-                sendMessage(message, user2.id!!, wsSession)
+                sendMessage(user2.id!!, message, wsSession)
             }
         }
     }
 
     private fun sendMessageIfSessionExist(userIdToSend: UUID, message: MessageDto) {
         userIdToSessions[userIdToSend]?.let {
-            sendMessage(message, userIdToSend, it)
+            sendMessage(userIdToSend, message, it)
         } ?: run {
             // в случае ошибки сохраняем сообщения и отправляем позже
             logger.warn {
@@ -196,7 +206,7 @@ class WSHandler(
         }
     }
 
-    private fun sendMessage(message: MessageDto, userId: UUID, wsSession: WebSocketSession) {
+    private fun sendMessage(userId: UUID, message: MessageDto, wsSession: WebSocketSession) {
         try {
             wsSession.sendMessage(TextMessage(mapper.writeValueAsString(message)))
         } catch (ex: IOException) {
@@ -210,14 +220,25 @@ class WSHandler(
         logger.info { "successfully sent message to user: $message, user: $userId" }
     }
 
-    private fun putDefaultPrincipalToSessionIfNotExist(session: WebSocketSession, userId: UUID) {
-        userIdToSessions.putIfAbsent(userId, session)
+    private fun saveSessionAndSendMessage(userId: UUID, wsSession: WebSocketSession, ) {
+        putDefaultPrincipalToSessionIfNotExist(wsSession, userId)
+        val message = NewWsSession(
+            messageType = MessageType.NEW_WS,
+            backendUserId = userId,
+            sessionId = wsSession.id
+        )
+        sendMessage(userId, message, wsSession)
     }
 
-    private fun getUserIdBySession(session: WebSocketSession): UUID? {
-        logger.info { "trying to find userId by session: " }
+    private fun putDefaultPrincipalToSessionIfNotExist(wsSession: WebSocketSession, userId: UUID) {
+        logger.info { "save session (${wsSession.id}) for user: $userId" }
+        userIdToSessions.putIfAbsent(userId, wsSession)
+    }
+
+    private fun getUserIdBySession(wsSession: WebSocketSession): UUID? {
+        logger.info { "trying to find userId by session: ${wsSession.id}" }
         userIdToSessions.forEach { (userId, wbSession) ->
-            if (session == wbSession) {
+            if (wsSession == wbSession) {
                 return userId
             }
         }
@@ -240,16 +261,40 @@ class WSHandler(
         removeSessionFromMaps(session, closeStatus)
     }
 
+    private fun removeOldSessionFromMaps(oldSessionId: String) {
+        val userIdToSessionIterator = userIdToSessions.iterator()
+        while (userIdToSessionIterator.hasNext()) {
+            val userToSession = userIdToSessionIterator.next()
+            if (userToSession.value.id == oldSessionId) {
+                userIdToSessionIterator.remove()
+                sessions.remove(oldSessionId)
+                break
+            }
+        }
+    }
+
     private fun removeSessionFromMaps(session: WebSocketSession, closeStatus: CloseStatus) {
         val userIdToSessionIterator = userIdToSessions.iterator()
         while (userIdToSessionIterator.hasNext()) {
-            val s = userIdToSessionIterator.next()
-            if (s.value.id == session.id) {
+            val userToSession = userIdToSessionIterator.next()
+            if (userToSession.value.id == session.id) {
                 userIdToSessionIterator.remove()
                 sessions.remove(session.id)
                 session.close(closeStatus)
                 break
             }
+        }
+    }
+
+    // проверка, что не шлют сообщения из "второго окна", из "старой сессии", новые сессии создаются при WS_RETRY
+    private fun isUserSessionActive(session: WebSocketSession, message: String): Boolean {
+        return if (getUserIdBySession(session) == null) {
+            logger.warn {
+                "some user use inactive session: ${session.id}, message: $message, stop processing this message"
+            }
+            false
+        } else {
+            true
         }
     }
 
