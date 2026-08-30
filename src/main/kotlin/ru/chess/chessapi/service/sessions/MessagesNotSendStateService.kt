@@ -1,4 +1,4 @@
-package ru.chess.chessapi.service
+package ru.chess.chessapi.service.sessions
 
 import org.springframework.stereotype.Service
 import ru.chess.chessapi.web.websocket.message.MessageDto
@@ -15,6 +15,18 @@ class MessagesNotSendStateService {
         userId: UUID,
         message: MessageDto
     ) {
-        userIdToMessagesNotSend.computeIfAbsent(userId) { CopyOnWriteArrayList() }.add(message)
+        userIdToMessagesNotSend.computeIfAbsent(userId) {
+            CopyOnWriteArrayList()
+        }.add(message)
+    }
+
+    fun getMessagesByUserId(
+        userId: UUID
+    ): List<MessageDto> {
+        return userIdToMessagesNotSend[userId] ?: emptyList()
+    }
+
+    fun cleanByUserid(userId: UUID) {
+        userIdToMessagesNotSend.remove(userId)
     }
 }
