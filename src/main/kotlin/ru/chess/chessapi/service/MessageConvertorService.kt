@@ -1,6 +1,7 @@
 package ru.chess.chessapi.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.TextMessage
@@ -57,7 +58,13 @@ class MessageConvertorService(
 
     private fun getMatchFinishedMessage(textMessage: TextMessage): MatchFinishedMessageDto? {
         return try {
-            val message = mapper.readValue<MatchFinishedMessageDto>(textMessage.payload)
+            val json = mapper.readTree(textMessage.payload)
+            val winner = json.get("winnerSide")
+            // Unity JsonUtility serializes nullable strings as empty strings.
+            if (json is ObjectNode && winner?.isTextual == true && winner.asText().isBlank()) {
+                json.putNull("winnerSide")
+            }
+            val message = mapper.treeToValue(json, MatchFinishedMessageDto::class.java)
             if (message.messageType == MessageType.MATCH_FINISHED)
                 message
             else null

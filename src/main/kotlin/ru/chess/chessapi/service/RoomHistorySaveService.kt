@@ -3,17 +3,22 @@ package ru.chess.chessapi.service
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import ru.chess.chessapi.exception.RoomDoesNotExistException
 import ru.chess.chessapi.utils.findUserBySide
 import ru.chess.chessapi.web.dto.request.RoomHistorySaveRequest
 import ru.chess.chessapi.web.dto.response.RoomHistorySaveResponse
+import ru.chess.chessapi.web.websocket.message.MatchFinishedMessageDto
+import ru.chess.chessapi.web.websocket.message.enums.MessageType
 import ru.chess.chessapi.web.websocket.message.enums.SideType
 
 @Service
 class RoomHistorySaveService(
     private val roomService: RoomService,
     private val userService: UserService,
-    private val gameHistoryService: GameHistoryService
+    private val gameHistoryService: GameHistoryService,
+    private val wsSender: WsSender
 ) {
 
     private val log = KotlinLogging.logger {}
@@ -30,16 +35,23 @@ class RoomHistorySaveService(
 
             return if (room != null) {
                 // room is not null -> room & user SHOULD exist already
-                val roomEntity = roomService.findRoomById(room) ?: throw RoomDoesNotExistException(room)
+                val roomEntity = roomService.findRoomByIdForUpdate(room) ?: throw RoomDoesNotExistException(room)
                 val userEntity = roomEntity.findUserBySide(userSide)
                 roomEntity.history = history
                 // if ws socket is broken - need to save winner
-                if (roomEntity.winType == null || roomEntity.winnerSide == null) {
+                if (roomEntity.winType == null) {
                     log.info {
                         "save history, set winType ($finishType) & winnerSide ($winnerSideFixed) for roomId: $room"
                     }
                     roomEntity.winType = finishType
                     roomEntity.winnerSide = winnerSideFixed
+                    val finished = MatchFinishedMessageDto(MessageType.MATCH_FINISHED_WS, room, winnerSideFixed, finishType)
+                    TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                        override fun afterCommit() {
+                            wsSender.sendMessageIfSessionExist(roomEntity.user1.id!!, finished)
+                            wsSender.sendMessageIfSessionExist(roomEntity.user2.id!!, finished)
+                        }
+                    })
                 }
                 roomService.save(roomEntity)
                 gameHistoryService.saveGameHistoryByRoom(userEntity, roomEntity, opponentType)

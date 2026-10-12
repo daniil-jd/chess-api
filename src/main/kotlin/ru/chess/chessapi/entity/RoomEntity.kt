@@ -48,5 +48,7 @@ data class RoomEntity(
     @Enumerated(EnumType.STRING)
     var winType: FinishType?,
     @CreationTimestamp
-    var createdAt: LocalDateTime? = null
+    var createdAt: LocalDateTime? = null,
+    @Column(name = "match_server_time_ms")
+    var matchServerTimeMs: Long? = null
 )

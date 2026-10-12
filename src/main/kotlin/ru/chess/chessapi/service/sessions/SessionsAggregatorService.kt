@@ -10,21 +10,13 @@ class SessionsAggregatorService(
     private val sessionStateService: SessionStateService
 ) {
 
-    fun removeOldSessionFromStates(oldSessionId: String) {
-        val userId = userSessionStateService.getUserIdBySession(oldSessionId)
-        if (userId != null) {
-            userSessionStateService.removeByUserId(userId)
-            sessionStateService.remove(oldSessionId)
-        }
-    }
-
     fun removeSessionFromMaps(session: WebSocketSession, closeStatus: CloseStatus) {
+        sessionStateService.remove(session.id)
         val userId = userSessionStateService.getUserIdBySession(session.id)
         if (userId != null) {
-            userSessionStateService.removeByUserId(userId)
-            sessionStateService.remove(session.id)
-            session.close(closeStatus)
+            userSessionStateService.removeByUserId(userId, session)
         }
+        if (session.isOpen) session.close(closeStatus)
     }
 
 }

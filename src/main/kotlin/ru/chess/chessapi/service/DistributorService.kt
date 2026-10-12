@@ -15,8 +15,6 @@ import ru.chess.chessapi.web.dto.request.UserChangeNameRequest
 import ru.chess.chessapi.web.dto.response.AuthCodeResponse
 import ru.chess.chessapi.web.dto.response.AuthResponse
 import ru.chess.chessapi.web.websocket.message.RequestForRoomMessageDto
-import ru.chess.chessapi.web.websocket.message.enums.FinishType
-import ru.chess.chessapi.web.websocket.message.enums.PromotionType
 import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.*
 
@@ -89,22 +87,6 @@ class DistributorService(
 
             SideType.RANDOM -> {
                 listOf(SideType.WHITE, SideType.BLACK, SideType.RANDOM)
-            }
-        }
-    }
-
-    private fun findOppositeSide(side: SideType): SideType {
-        return when (side) {
-            SideType.WHITE -> {
-                SideType.BLACK
-            }
-
-            SideType.BLACK -> {
-                SideType.WHITE
-            }
-
-            SideType.RANDOM -> {
-                SideType.WHITE
             }
         }
     }
@@ -200,63 +182,6 @@ class DistributorService(
         } else {
             logger.warn { "Nothing found by userId: $userId" }
         }
-    }
-
-    private fun findRoomAndAddHistory(roomId: UUID, move: String, promotionType: PromotionType? = null): RoomEntity {
-        val room = roomService.findRoomById(roomId) ?: throw RoomDoesNotExistException(roomId)
-        val sb = if (room.history == null) {
-            StringBuilder(move)
-        } else {
-            StringBuilder(room.history).also {
-                it.append(" ").append(move).append(promotionType?.toHistoryPart() ?: "")
-            } // todo fix null to history
-        }
-        room.history = sb.toString()
-        return room
-    }
-
-    @Transactional
-    fun updateRoomHistory(roomId: UUID, move: String, promotionType: PromotionType?): RoomEntity {
-        val room = findRoomAndAddHistory(roomId, move, promotionType)
-        return roomService.save(room)
-    }
-
-    @Transactional
-    fun updateRoomHistoryWhenMatchIsOver(
-        roomId: UUID, sideOfMove: SideType, finishType: FinishType
-    ): RoomEntity {
-        val room = findRoomAndAddHistory(roomId, finishType.toString()).also {
-            it.winnerSide = sideOfMove
-            it.winType = finishType
-        }
-        return roomService.save(room)
-    }
-
-    private fun findAnotherUser(room: RoomEntity, sideOfMove: SideType): UserEntity {
-        return if (sideOfMove == room.user1Side) {
-            room.user2
-        } else {
-            room.user1
-        }
-    }
-
-    @Transactional
-    fun updateRoomHistoryAndReturnAnotherUser(
-        roomId: UUID,
-        sideOfMove: SideType,
-        move: String,
-        promotionType: PromotionType?
-    ): UserEntity {
-        val room = updateRoomHistory(roomId, move, promotionType)
-        return findAnotherUser(room, sideOfMove)
-    }
-
-    @Transactional
-    fun updateRoomHistoryAndReturnAnotherUserWhenMatchIsOver(
-        roomId: UUID, winnerSide: SideType, finishType: FinishType
-    ): UserEntity {
-        val room = updateRoomHistoryWhenMatchIsOver(roomId, winnerSide, finishType)
-        return findAnotherUser(room, findOppositeSide(winnerSide))
     }
 
     @Transactional

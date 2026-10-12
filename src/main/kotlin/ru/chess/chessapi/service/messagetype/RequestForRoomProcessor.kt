@@ -5,12 +5,14 @@ import org.springframework.stereotype.Service
 import org.springframework.web.socket.WebSocketSession
 import ru.chess.chessapi.service.DistributorService
 import ru.chess.chessapi.service.WsSender
+import ru.chess.chessapi.service.OnlineMatchService
 import ru.chess.chessapi.web.websocket.message.RequestForRoomMessageDto
 
 @Service
 class RequestForRoomProcessor(
     private val distributorService: DistributorService,
-    private val wsSender: WsSender
+    private val wsSender: WsSender,
+    private val onlineMatchService: OnlineMatchService
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -27,7 +29,7 @@ class RequestForRoomProcessor(
 
         // create room if it possible
         val rooms = distributorService.searchCandidatesAndCreateRooms()
-        rooms.forEach { wsSender.sendRoomCreatedMessage(it) }
+        rooms.forEach { onlineMatchService.startMatch(it.id!!) }
     }
 
 }

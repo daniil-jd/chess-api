@@ -13,7 +13,7 @@ class UserSessionStateService {
     private val logger = KotlinLogging.logger {}
 
     fun add(userId: UUID,session: WebSocketSession) {
-        userIdToSession.putIfAbsent(userId, session).also {
+        userIdToSession.put(userId, session).also {
             logger.info { "session ${session.id} saved for user $userId" }
         }
     }
@@ -22,8 +22,8 @@ class UserSessionStateService {
         return userIdToSession[userId]
     }
 
-    fun removeByUserId(userId: UUID) {
-        userIdToSession.remove(userId)
+    fun removeByUserId(userId: UUID, session: WebSocketSession) {
+        userIdToSession.remove(userId, session)
     }
 
     fun getUserIdBySession(sessionId: String): UUID? {

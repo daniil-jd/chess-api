@@ -30,14 +30,18 @@ class WsSender(
         wsSession: WebSocketSession
     ) {
         try {
-            wsSession.sendMessage(TextMessage(mapper.writeValueAsString(message)))
-        } catch (ex: IOException) {
+            synchronized(wsSession) {
+                wsSession.sendMessage(TextMessage(mapper.writeValueAsString(message)))
+            }
+        } catch (ex: Exception) {
+            if (ex !is IOException && ex !is IllegalStateException) throw ex
             logger.warn {
                 "can't send message $message to user ($userId), something wrong with ws session " +
                     "(id: ${wsSession.id}, is open: ${wsSession.isOpen}), error: ${ex.message}"
             }
             // в случае ошибки отправки сохраняем сообщение для попытки ретрая в будущем
             messagesNotSendStateService.addMessage(userId, message)
+            return
         }
         logger.info { "successfully sent message to user: $message, user: $userId" }
     }
@@ -55,14 +59,14 @@ class WsSender(
         }
     }
 
-    fun saveSessionAndSendNewSessionMessage(userId: UUID, session: WebSocketSession) {
+    fun saveSessionAndSendNewSessionMessage(
+        userId: UUID,
+        session: WebSocketSession,
+        snapshot: NewWsSession = NewWsSession(MessageType.NEW_WS, userId, session.id)
+    ) {
         userSessionStateService.add(userId, session)
-        val message = NewWsSession(
-            messageType = MessageType.NEW_WS,
-            backendUserId = userId,
-            sessionId = session.id
-        )
-        sendMessage(userId, message, session)
+        messagesNotSendStateService.cleanByUserid(userId)
+        sendMessage(userId, snapshot, session)
     }
 
     fun sendRoomCreatedMessage(room: RoomEntity) {
@@ -80,9 +84,10 @@ class WsSender(
             room = room.id!!,
             opponentName = user2.username,
             playerSide = user1Side,
-            sessionId = session1!!.id
+            sessionId = session1?.id ?: "",
+            matchServerTimeMs = room.matchServerTimeMs
         )
-        sendMessage(user1.id!!, message1, session1)
+        sendMessageIfSessionExist(user1.id!!, message1)
 
         val message2 = RoomFoundMessageDto(
             messageType = MessageType.ROOM_FOUND,
@@ -90,9 +95,10 @@ class WsSender(
             room = room.id!!,
             opponentName = user1.username,
             playerSide = user2Side,
-            sessionId = session2!!.id
+            sessionId = session2?.id ?: "",
+            matchServerTimeMs = room.matchServerTimeMs
         )
-        sendMessage(user2.id!!, message2, session2)
+        sendMessageIfSessionExist(user2.id!!, message2)
     }
 
 }

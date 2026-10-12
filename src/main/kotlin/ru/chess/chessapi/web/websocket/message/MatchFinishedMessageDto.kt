@@ -8,6 +8,6 @@ import java.util.UUID
 data class MatchFinishedMessageDto(
     override val messageType: MessageType,
     val room: UUID,
-    val winnerSide: SideType,
+    val winnerSide: SideType?,
     val finishType: FinishType
 ): MessageDto

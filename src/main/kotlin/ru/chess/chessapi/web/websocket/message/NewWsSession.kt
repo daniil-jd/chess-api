@@ -6,5 +6,8 @@ import java.util.*
 data class NewWsSession(
     override val messageType: MessageType,
     val backendUserId: UUID?,
-    val sessionId: String?
+    val sessionId: String?,
+    val room: UUID? = null,
+    val turns: List<MoveAcceptedMessageDto> = emptyList(),
+    val matchServerTimeMs: Long? = null
 ): MessageDto

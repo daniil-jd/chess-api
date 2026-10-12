@@ -1,0 +1,43 @@
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="persist_accepted_moves" author="codex">
+        <addColumn tableName="chess_rooms_2">
+            <column name="match_server_time_ms" type="bigint"/>
+        </addColumn>
+
+        <createTable tableName="chess_moves">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="chess_moves_pk" nullable="false"/>
+            </column>
+            <column name="room_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="move_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ply" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="side_of_move" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="move" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="promotion_type" type="text"/>
+            <column name="turn_server_time_ms" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="chess_moves" columnNames="room_id,ply"
+                             constraintName="chess_moves_room_ply_key"/>
+        <addUniqueConstraint tableName="chess_moves" columnNames="room_id,move_id"
+                             constraintName="chess_moves_room_move_id_key"/>
+        <addForeignKeyConstraint baseTableName="chess_moves" baseColumnNames="room_id"
+                                 referencedTableName="chess_rooms_2" referencedColumnNames="id"
+                                 constraintName="fk_chess_moves_room"/>
+    </changeSet>
+</databaseChangeLog>

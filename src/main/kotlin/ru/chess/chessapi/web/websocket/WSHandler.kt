@@ -43,7 +43,6 @@ class WSHandler(
         sessionStateService.add(session)
     }
 
-    @Transactional
     override fun handleMessage(session: WebSocketSession, webSocketMessage: WebSocketMessage<*>) {
         if (webSocketMessage is TextMessage) {
             logger.info { "receive text message: ${webSocketMessage.payload}" }
