@@ -20,12 +20,14 @@ import ru.chess.chessapi.web.websocket.message.enums.GameType
 import ru.chess.chessapi.web.websocket.message.enums.UserGameStatus
 import java.time.ZoneOffset
 import kotlin.jvm.optionals.getOrNull
+import ru.chess.chessapi.auth.PlayerAccessGuard
 
 @Service
 class GameHistoryService(
     private val gameHistoryRepository: GameHistoryRepository,
     private val roomService: RoomService,
-    private val userService: UserService
+    private val userService: UserService,
+    private val access: PlayerAccessGuard
 ) {
 
     private val log = KotlinLogging.logger {}
@@ -103,6 +105,7 @@ class GameHistoryService(
                 }
             }
 
+            access.requireUser(userEntity)
             val gameHistory = findOrCreateIfNotExists(userEntity, roomEntity)
             return when {
                 gameHistory.favourite -> {

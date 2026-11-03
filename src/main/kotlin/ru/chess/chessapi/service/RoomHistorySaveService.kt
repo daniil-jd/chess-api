@@ -12,13 +12,15 @@ import ru.chess.chessapi.web.dto.response.RoomHistorySaveResponse
 import ru.chess.chessapi.web.websocket.message.MatchFinishedMessageDto
 import ru.chess.chessapi.web.websocket.message.enums.MessageType
 import ru.chess.chessapi.web.websocket.message.enums.SideType
+import ru.chess.chessapi.auth.PlayerAccessGuard
 
 @Service
 class RoomHistorySaveService(
     private val roomService: RoomService,
     private val userService: UserService,
     private val gameHistoryService: GameHistoryService,
-    private val wsSender: WsSender
+    private val wsSender: WsSender,
+    private val access: PlayerAccessGuard
 ) {
 
     private val log = KotlinLogging.logger {}
@@ -37,6 +39,8 @@ class RoomHistorySaveService(
                 // room is not null -> room & user SHOULD exist already
                 val roomEntity = roomService.findRoomByIdForUpdate(room) ?: throw RoomDoesNotExistException(room)
                 val userEntity = roomEntity.findUserBySide(userSide)
+                access.requireMatchingId(backendUserId)
+                access.requireUser(userEntity)
                 roomEntity.history = history
                 // if ws socket is broken - need to save winner
                 if (roomEntity.winType == null) {
@@ -56,7 +60,7 @@ class RoomHistorySaveService(
                 roomService.save(roomEntity)
                 gameHistoryService.saveGameHistoryByRoom(userEntity, roomEntity, opponentType)
 
-                RoomHistorySaveResponse(backendUserId = backendUserId!!, roomId = roomEntity.id!!)
+                RoomHistorySaveResponse(backendUserId = userEntity.id!!, roomId = roomEntity.id!!)
             } else {
                 // room is null -> room doesn't exist, this is user vs bot
                 saveHistoryForUserAndBot(this, winnerSideFixed)

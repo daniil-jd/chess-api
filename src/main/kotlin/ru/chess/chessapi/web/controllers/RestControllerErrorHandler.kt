@@ -1,6 +1,5 @@
 package ru.chess.chessapi.web.controllers
 
-import com.fasterxml.jackson.databind.JsonMappingException
 import mu.KotlinLogging
 import org.springframework.http.HttpStatus
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -11,10 +10,17 @@ import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.multipart.support.MissingServletRequestPartException
 import ru.chess.chessapi.exception.UserDoesNotExistException
+import org.springframework.http.ResponseEntity
+import ru.chess.chessapi.auth.AuthException
+import ru.chess.chessapi.auth.AuthErrorResponse
 
 @RestControllerAdvice
 class RestControllerErrorHandler {
     private val log = KotlinLogging.logger {}
+
+    @ExceptionHandler(AuthException::class)
+    fun handleAuthError(e: AuthException): ResponseEntity<AuthErrorResponse> =
+        ResponseEntity.status(e.status).body(AuthErrorResponse(e.code, e.message ?: "Authentication failed"))
 
     @ExceptionHandler(Exception::class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -49,20 +55,8 @@ class RestControllerErrorHandler {
     @ExceptionHandler(HttpMessageNotReadableException::class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun jsonParseError(e: HttpMessageNotReadableException): ErrorResponse {
-        log.error { e.message }
-        val cause: Throwable = e.cause ?: e
-
-        return if (cause is JsonMappingException && cause.path.isNotEmpty()) {
-            val fieldName = buildFullFieldNameForJsonMappingExceptionPath(cause.path)
-
-            ErrorResponse(
-                "Illegal field value. Field: $fieldName. Reason: ${
-                    cause.originalMessage.replace('"', '`')
-                }"
-            )
-        } else {
-            ErrorResponse("Json parse error. Reason: ${cause.message?.split("\n")?.firstOrNull() ?: ""}")
-        }
+        // Parser diagnostics can contain the submitted proof or recovery key.
+        return ErrorResponse("Invalid JSON request")
     }
 
     @ExceptionHandler(MissingServletRequestPartException::class)
@@ -73,13 +67,5 @@ class RestControllerErrorHandler {
     }
 
     data class ErrorResponse(val errorMessage: String)
-
-    private fun buildFullFieldNameForJsonMappingExceptionPath(path: List<JsonMappingException.Reference>): String {
-        val deleteDotAtTheBeginningRegex = """^\.""".toRegex()
-        return path.joinToString(separator = "") { reference ->
-            reference.fieldName?.let { ".${it}" }
-                ?: "[${reference.index}]"
-        }.replaceFirst(deleteDotAtTheBeginningRegex, "")
-    }
 
 }

@@ -14,17 +14,25 @@ import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
 import ru.chess.chessapi.web.websocket.message.enums.GameType
 import ru.chess.chessapi.web.websocket.message.enums.UserGameStatus
 import java.util.*
+import ru.chess.chessapi.auth.PlayerAccessGuard
 
 @Service
 class RoomHistorySearchService(
     private val roomService: RoomService,
     private val userService: UserService,
-    private val gameHistoryService: GameHistoryService
+    private val gameHistoryService: GameHistoryService,
+    private val access: PlayerAccessGuard
 ) {
 
     private val logger = KotlinLogging.logger {}
 
     fun getLatest30GamesEachType(backendUserId: String?, signature: String?): RoomHistorySearchResponse {
+        if (backendUserId.isNullOrBlank() && signature.isNullOrBlank()) {
+            access.current()?.let { principal ->
+                return prepareRoomHistoryResponse(userService.findById(principal.userId)
+                    ?: throw UserDoesNotExistException(principal.userId.toString()))
+            }
+        }
         return when {
             // backendUserId is not null, not blank
             !backendUserId.isNullOrBlank() -> {
@@ -68,6 +76,7 @@ class RoomHistorySearchService(
     }
 
     private fun prepareRoomHistoryResponse(user: UserEntity): RoomHistorySearchResponse {
+        access.requireUser(user)
         val games = mutableListOf<GameHistory>().apply {
             addAll(gameHistoryService.findLast30ByUserAndGameType(user, GameType.ONLINE))
             addAll(gameHistoryService.findLast30ByUserAndGameType(user, GameType.BOT))

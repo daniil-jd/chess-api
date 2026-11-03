@@ -54,3 +54,10 @@ logging:
     org.zalando.logbook: TRACE
   pattern:
     console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr([%X{proposalId:-},%X{traceId:-},%X{spanId:-}]){blue}[%thread] %clr(%-5level) %clr(%logger{36}){magenta} - %msg%n"
+
+auth:
+  new-accounts-enabled: ${AUTH_NEW_ACCOUNTS_ENABLED:false}
+  session-ttl-seconds: ${AUTH_SESSION_TTL_SECONDS:3600}
+  crazygames:
+    enabled: ${AUTH_CRAZYGAMES_ENABLED:false}
+    game-id: ${AUTH_CRAZYGAMES_GAME_ID:}

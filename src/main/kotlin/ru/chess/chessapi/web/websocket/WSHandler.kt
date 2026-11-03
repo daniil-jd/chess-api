@@ -2,10 +2,13 @@ package ru.chess.chessapi.web.websocket
 
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.socket.*
-import ru.chess.chessapi.entity.RoomEntity
-import ru.chess.chessapi.service.DistributorService
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.springframework.http.HttpStatus
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
+import ru.chess.chessapi.auth.*
+import ru.chess.chessapi.service.UserService
 import ru.chess.chessapi.service.MessageConvertorService
 import ru.chess.chessapi.service.messagetype.CancelMatchProcessor
 import ru.chess.chessapi.service.messagetype.ChessMoveProcessor
@@ -16,12 +19,7 @@ import ru.chess.chessapi.service.messagetype.WsRetryProcessor
 import ru.chess.chessapi.service.sessions.SessionStateService
 import ru.chess.chessapi.service.sessions.SessionsAggregatorService
 import ru.chess.chessapi.service.sessions.UserSessionStateService
-import ru.chess.chessapi.utils.preparePongMessage
 import ru.chess.chessapi.web.websocket.message.*
-import ru.chess.chessapi.web.websocket.message.enums.MessageType
-import java.io.IOException
-import java.util.*
-import java.util.concurrent.CopyOnWriteArrayList
 
 @Component
 class WSHandler(
@@ -34,7 +32,11 @@ class WSHandler(
     private val matchFinishProcessor: MatchFinishProcessor,
     private val pingPongProcessor: PingPongProcessor,
     private val requestForRoomProcessor: RequestForRoomProcessor,
-    private val wsRetryProcessor: WsRetryProcessor
+    private val wsRetryProcessor: WsRetryProcessor,
+    private val mapper: ObjectMapper,
+    private val authState: WebSocketAuthState,
+    private val access: PlayerAccessGuard,
+    private val users: UserService
 ) : WebSocketHandler {
 
     private val logger = KotlinLogging.logger {}
@@ -44,16 +46,41 @@ class WSHandler(
     }
 
     override fun handleMessage(session: WebSocketSession, webSocketMessage: WebSocketMessage<*>) {
-        if (webSocketMessage is TextMessage) {
-            logger.info { "receive text message: ${webSocketMessage.payload}" }
-            val message = messageConvertorService.convertMessageDtoFromTextMessage(webSocketMessage)
-            if (message == null) {
-                logger.warn {
-                    "received message, that can't be converted: ${webSocketMessage.payload}"
+        if (webSocketMessage !is TextMessage) return
+        val previousContext = SecurityContextHolder.getContext()
+        SecurityContextHolder.setContext(SecurityContextHolder.createEmptyContext())
+        try {
+            val json = try { mapper.readTree(webSocketMessage.payload) } catch (_: Exception) {
+                throw AuthException(HttpStatus.BAD_REQUEST, "INVALID_MESSAGE", "Invalid JSON message")
+            }
+            if (json?.get("messageType")?.asText() == "AUTH") {
+                val token = json.get("sessionToken")?.takeIf { it.isTextual }?.asText()
+                    ?: throw AuthException(HttpStatus.UNAUTHORIZED, "SESSION_INVALID", "A session token is required")
+                val principal = authState.bind(session, token)
+                synchronized(session) {
+                    session.sendMessage(TextMessage(mapper.writeValueAsString(mapOf(
+                        "messageType" to "AUTH_OK", "backendUserId" to principal.userId,
+                        "authSessionId" to principal.authSessionId, "sessionExpiresAt" to principal.expiresAt
+                    ))))
                 }
                 return
             }
-            logger.info { "received message type: ${message.messageType}, message body: ${webSocketMessage.payload}" }
+            val principal = authState.principal(session)
+            if (principal != null) {
+                SecurityContextHolder.getContext().authentication =
+                    UsernamePasswordAuthenticationToken(principal, null, emptyList())
+                json?.get("backendUserId")?.takeIf { it.isTextual && it.asText().isNotBlank() }?.let {
+                    if (it.asText() != principal.userId.toString()) {
+                        throw AuthException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Profile does not belong to this session")
+                    }
+                }
+            }
+            val message = messageConvertorService.convertMessageDtoFromTextMessage(webSocketMessage)
+            if (message == null) {
+                logger.warn { "Unrecognized WebSocket message in session ${session.id}" }
+                return
+            }
+            logger.debug { "Received ${message.messageType} in session ${session.id}" }
 
             when (message) {
                 is RequestForRoomMessageDto -> {
@@ -68,7 +95,9 @@ class WSHandler(
 
                 else -> {
                     // для остальных типов сообщений сессия должна быть активна
-                    if (!userSessionStateService.isUserSessionActive(session, webSocketMessage.payload)) return
+                    val userId = userSessionStateService.getUserIdBySession(session.id) ?: return
+                    val user = users.findById(userId) ?: return
+                    access.requireUser(user)
 
                     when(message) {
                         is MoveMessageDto -> chessMoveProcessor.process(message, session)
@@ -79,10 +108,20 @@ class WSHandler(
 
                         is Ping -> pingPongProcessor.process(message, session)
 
-                        else -> logger.info { "Can't determine type of message: $webSocketMessage" }
+                        else -> logger.debug { "Unexpected message type ${message.messageType}" }
                     }
                 }
             }
+        } catch (e: AuthException) {
+            try {
+                if (session.isOpen) synchronized(session) {
+                    session.sendMessage(TextMessage(mapper.writeValueAsString(mapOf(
+                        "messageType" to "AUTH_ERROR", "code" to e.code, "message" to e.message
+                    ))))
+                }
+            } finally { authState.close(session) }
+        } finally {
+            SecurityContextHolder.setContext(previousContext)
         }
     }
 
@@ -90,6 +129,7 @@ class WSHandler(
         // не обрабатываем разрыв игрока тут
         logger.error { "ws, transport error, session - ${session.id}, principal - ${session.principal?.name}, exception - ${exception.message}" }
         sessionsAggregatorService.removeSessionFromMaps(session, CloseStatus.SERVER_ERROR)
+        authState.forget(session)
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, closeStatus: CloseStatus) {
@@ -100,7 +140,8 @@ class WSHandler(
         logger.error { "afterConnectionClosed, ws session (${session.id}) is closed, status: $closeStatus" }
 
         sessionsAggregatorService.removeSessionFromMaps(session, closeStatus)
+        authState.forget(session)
     }
 
-    override fun supportsPartialMessages(): Boolean = true
+    override fun supportsPartialMessages(): Boolean = false
 }

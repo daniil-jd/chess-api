@@ -24,5 +24,7 @@ data class UserEntity(
     val isBot: Boolean = false,
     var authCode: String? = null,
     @CreationTimestamp
-    var createdAt: Instant? = null
+    var createdAt: Instant? = null,
+    @Column(name = "legacy_access_allowed", nullable = false)
+    var legacyAccessAllowed: Boolean = true
 )

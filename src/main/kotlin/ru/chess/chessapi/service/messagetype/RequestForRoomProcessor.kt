@@ -17,6 +17,9 @@ class RequestForRoomProcessor(
 
     private val logger = KotlinLogging.logger {}
 
+    // The live game server uses in-process session maps. Register each socket before another
+    // request can match its committed candidate and send ROOM_FOUND to that socket.
+    @Synchronized
     fun process(message: RequestForRoomMessageDto, session: WebSocketSession) {
         val userRoomCandidate = distributorService.createUserRoomCandidate(message)
         logger.info {

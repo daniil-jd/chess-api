@@ -5,12 +5,15 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.repository.UserRepository
+import ru.chess.chessapi.auth.PlayerAccessGuard
+import ru.chess.chessapi.exception.UserDoesNotExistException
 import java.util.*
 
 @Service
 @Transactional
 class UserService(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val access: PlayerAccessGuard
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -25,6 +28,10 @@ class UserService(
         backendUserId: UUID?,
         username: String
     ): UserEntity {
+        access.current()?.let { principal ->
+            access.requireMatchingId(backendUserId)
+            return findById(principal.userId) ?: throw UserDoesNotExistException(principal.userId.toString())
+        }
         val filteredSignature = signature?.let { it.ifBlank { null } }
         return when {
             // not authorized in yandex, first time
@@ -53,7 +60,7 @@ class UserService(
                 findById(backendUserId!!) ?: findBySignature(filteredSignature!!)
                 ?: createUser(username = username, signature = filteredSignature)
             }
-        }
+        }.also(access::requireUser)
     }
 
     fun save(userEntity: UserEntity): UserEntity = userRepository.save(userEntity)
@@ -61,9 +68,7 @@ class UserService(
     fun findUserByName(name: String): UserEntity? = userRepository.findByUsername(name)
 
     fun findById(userId: UUID): UserEntity? {
-        return userRepository.findById(userId).orElse(null).also {
-            logger.info { "Search user by userId: $userId, result: $it" }
-        }
+        return userRepository.findById(userId).orElse(null)
     }
 
     fun findByAuthCode(authCode: String): UserEntity? {
@@ -81,9 +86,7 @@ class UserService(
     }
 
     fun findBySignature(signature: String): UserEntity? {
-        return userRepository.findBySignature(signature).also {
-            logger.info { "Search user by signature: $signature, result: $it" }
-        }
+        return userRepository.findBySignature(signature)
     }
 
     fun findBotByColor(isWhite: Boolean): UserEntity {

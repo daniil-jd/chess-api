@@ -5,9 +5,12 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.security.config.http.SessionCreationPolicy
+import com.fasterxml.jackson.databind.ObjectMapper
+import ru.chess.chessapi.auth.AuthHttpFilter
+import ru.chess.chessapi.auth.AuthService
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
@@ -17,16 +20,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @EnableGlobalMethodSecurity(prePostEnabled = true)
 class DefaultSecurityConfiguration {
 
-    /**
-     * Add security filter to chain of filters and secure main endpoints.
-     * Enable it then it needs.
-     */
     @Bean
-    fun filterChain(http: HttpSecurity): SecurityFilterChain {
+    fun filterChain(http: HttpSecurity, auth: AuthService, mapper: ObjectMapper): SecurityFilterChain {
         http
             .cors { c -> c.configurationSource(corsConfigurationSource()) }
-            .csrf().disable()
-            .authorizeRequests().anyRequest().anonymous()
+            .csrf { it.disable() }
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .addFilterBefore(AuthHttpFilter(auth, mapper), UsernamePasswordAuthenticationFilter::class.java)
+            // Legacy clients still enter without a token; ownership is checked by PlayerAccessGuard.
+            .authorizeHttpRequests { it.anyRequest().permitAll() }
 
         return http.build()
     }

@@ -49,7 +49,8 @@ class RoomHistorySaveServiceTest {
         }
     }
     private val service = RoomHistorySaveService(
-        roomService, Mockito.mock(UserService::class.java), gameHistoryService, wsSender
+        roomService, Mockito.mock(UserService::class.java), gameHistoryService, wsSender,
+        ru.chess.chessapi.auth.PlayerAccessGuard()
     )
 
     @Test

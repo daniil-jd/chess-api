@@ -1,0 +1,61 @@
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="unified_auth" author="codex">
+        <!-- Existing clients can still create legacy users. New auth paths explicitly set this to false. -->
+        <addColumn tableName="chess_users_2">
+            <column name="legacy_access_allowed" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <sql><![CDATA[
+            CREATE TABLE auth_identities (
+                id uuid PRIMARY KEY,
+                user_id uuid NOT NULL REFERENCES chess_users_2(id),
+                provider varchar(64) NOT NULL,
+                namespace varchar(255) NOT NULL,
+                subject varchar(512) NOT NULL,
+                display_name text,
+                avatar_url text,
+                created_at timestamp with time zone NOT NULL,
+                CONSTRAINT auth_identities_external_key UNIQUE (provider, namespace, subject),
+                CONSTRAINT auth_identities_owner_key UNIQUE (id, user_id),
+                CONSTRAINT auth_identities_nonempty CHECK (length(provider) > 0 AND length(namespace) > 0 AND length(subject) > 0)
+            );
+            CREATE INDEX auth_identities_user_idx ON auth_identities(user_id);
+
+            CREATE TABLE auth_credentials (
+                id uuid PRIMARY KEY,
+                user_id uuid NOT NULL REFERENCES chess_users_2(id),
+                type varchar(32) NOT NULL,
+                secret_hash varchar(64) NOT NULL UNIQUE,
+                created_at timestamp with time zone NOT NULL,
+                revoked_at timestamp with time zone,
+                CONSTRAINT auth_credentials_owner_key UNIQUE (id, user_id),
+                CONSTRAINT auth_credentials_type_check CHECK (type = 'GUEST_RECOVERY')
+            );
+            CREATE INDEX auth_credentials_user_idx ON auth_credentials(user_id);
+
+            CREATE TABLE auth_sessions (
+                id uuid PRIMARY KEY,
+                user_id uuid NOT NULL REFERENCES chess_users_2(id),
+                identity_id uuid,
+                credential_id uuid,
+                token_hash varchar(64) NOT NULL UNIQUE,
+                created_at timestamp with time zone NOT NULL,
+                expires_at timestamp with time zone NOT NULL,
+                revoked_at timestamp with time zone,
+                CONSTRAINT auth_sessions_source_check CHECK ((identity_id IS NULL) <> (credential_id IS NULL)),
+                CONSTRAINT auth_sessions_expiry_check CHECK (expires_at > created_at),
+                CONSTRAINT auth_sessions_identity_owner_fk FOREIGN KEY (identity_id, user_id)
+                    REFERENCES auth_identities(id, user_id),
+                CONSTRAINT auth_sessions_credential_owner_fk FOREIGN KEY (credential_id, user_id)
+                    REFERENCES auth_credentials(id, user_id)
+            );
+            CREATE INDEX auth_sessions_user_idx ON auth_sessions(user_id);
+            CREATE INDEX auth_sessions_credential_idx ON auth_sessions(credential_id);
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

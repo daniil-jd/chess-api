@@ -6,15 +6,23 @@ import ru.chess.chessapi.repository.RoomRepository
 import ru.chess.chessapi.service.OnlineMatchService
 import ru.chess.chessapi.service.WsSender
 import ru.chess.chessapi.web.websocket.message.RequestForWsRetryDto
+import ru.chess.chessapi.auth.PlayerAccessGuard
+import ru.chess.chessapi.service.UserService
+import ru.chess.chessapi.exception.UserDoesNotExistException
 
 @Service
 class WsRetryProcessor(
     private val roomRepository: RoomRepository,
     private val onlineMatchService: OnlineMatchService,
-    private val wsSender: WsSender
+    private val wsSender: WsSender,
+    private val userService: UserService,
+    private val access: PlayerAccessGuard
 ) {
     fun process(message: RequestForWsRetryDto, session: WebSocketSession) {
-        val userId = message.backendUserId ?: return
+        access.requireMatchingId(message.backendUserId)
+        val userId = access.current()?.userId ?: message.backendUserId ?: return
+        val user = userService.findById(userId) ?: throw UserDoesNotExistException(userId.toString())
+        access.requireUser(user)
         val roomId = message.roomId ?: roomRepository
             .findLatestOnlineRoomByUser(userId)?.id
         if (roomId == null) {

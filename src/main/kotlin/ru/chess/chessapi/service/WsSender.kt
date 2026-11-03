@@ -14,12 +14,14 @@ import ru.chess.chessapi.web.websocket.message.RoomFoundMessageDto
 import ru.chess.chessapi.web.websocket.message.enums.MessageType
 import java.io.IOException
 import java.util.*
+import ru.chess.chessapi.auth.WebSocketAuthState
 
 @Service
 class WsSender(
     private val mapper: ObjectMapper,
     private val messagesNotSendStateService: MessagesNotSendStateService,
     private val userSessionStateService: UserSessionStateService,
+    private val authState: WebSocketAuthState,
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -31,6 +33,10 @@ class WsSender(
     ) {
         try {
             synchronized(wsSession) {
+                if (!authState.canSend(wsSession, userId)) {
+                    messagesNotSendStateService.addMessage(userId, message)
+                    return
+                }
                 wsSession.sendMessage(TextMessage(mapper.writeValueAsString(message)))
             }
         } catch (ex: Exception) {

@@ -17,19 +17,27 @@ import ru.chess.chessapi.web.dto.response.AuthResponse
 import ru.chess.chessapi.web.websocket.message.RequestForRoomMessageDto
 import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.*
+import ru.chess.chessapi.auth.PlayerAccessGuard
+import ru.chess.chessapi.auth.AuthService
 
 @Service
 class DistributorService(
     private val userService: UserService,
     private val userRoomCandidateService: UserRoomCandidateService,
     private val roomService: RoomService,
-    private val authCodeService: AuthCodeService
+    private val authCodeService: AuthCodeService,
+    private val access: PlayerAccessGuard,
+    private val auth: AuthService,
+    private val matchmakingLock: MatchmakingLock
 ) {
 
     private val logger = KotlinLogging.logger {}
 
     @Transactional
     fun createUserRoomCandidate(requestMessageDto: RequestForRoomMessageDto): UserRoomCandidateEntity {
+        matchmakingLock.acquire()
+        // Serialize starting matchmaking with identity linking and guest-session revocation.
+        access.current()?.let(auth::lockAndValidate)
         with(requestMessageDto) {
             val user = userService.searchOrCreateUserBySignatureAndId(
                 signature = signature, backendUserId = backendUserId, username = username
@@ -43,6 +51,7 @@ class DistributorService(
 
     @Transactional
     fun searchCandidatesAndCreateRooms(): List<RoomEntity> {
+        matchmakingLock.acquire()
         val candidates = userRoomCandidateService.findActiveUserRoomCandidates()
         if (candidates.size >= 2) {
             val pairsToCreate = mutableSetOf<CandidatePair<UserRoomCandidateEntity, UserRoomCandidateEntity>>()
@@ -175,8 +184,10 @@ class DistributorService(
 
     @Transactional
     fun cancelRoomCandidate(userId: UUID) {
+        matchmakingLock.acquire()
         val user = userService.findById(userId)
         if (user != null) {
+            access.requireUser(user)
             userRoomCandidateService.deleteByUser(user)
             logger.info { "UserRoomCandidate deleted by userId: $userId" }
         } else {
@@ -203,6 +214,7 @@ class DistributorService(
     @Transactional
     fun generateAuthCode(backendUserId: UUID): AuthCodeResponse {
         val user = userService.findById(backendUserId) ?: throw UserDoesNotExistException(backendUserId.toString())
+        access.requireLegacyUser(user)
 
         val authCode = authCodeService.generateShortAuthCode(backendUserId)
 
@@ -213,6 +225,7 @@ class DistributorService(
 
     fun validateAuthCode(authCode: String): AuthResponse {
         val user = userService.findByAuthCode(authCode) ?: throw UserDoesNotExistException(authCode)
+        access.requireLegacyUser(user)
 
         return AuthResponse(user.id!!, user.username)
     }
@@ -221,6 +234,7 @@ class DistributorService(
     fun changeUserName(request: UserChangeNameRequest) {
         with(request) {
             val user = userService.findById(backendUserId) ?: throw UserDoesNotExistException(backendUserId.toString())
+            access.requireUser(user)
             user.username = newName
             userService.save(user)
         }
@@ -228,6 +242,7 @@ class DistributorService(
 
     fun findNotFinishedRoomByUserId(backendUserId: UUID): RoomEntity {
         val user = userService.findById(backendUserId) ?: throw UserDoesNotExistException(backendUserId.toString())
+        access.requireUser(user)
         return roomService.findNotFinishedRoomByUser(user) ?: throw RoomDoesNotExistByUserIdException(backendUserId)
     }
 
