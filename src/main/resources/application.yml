@@ -26,6 +26,11 @@ spring:
       mode: always
   liquibase:
     change-log: classpath:/db/changelog/db.changelog-master.xml
+  task:
+    scheduling:
+      pool:
+        size: 2
+      thread-name-prefix: chess-scheduler-
   jackson:
     deserialization:
       ADJUST_DATES_TO_CONTEXT_TIME_ZONE: false
@@ -54,3 +59,8 @@ logging:
     org.zalando.logbook: TRACE
   pattern:
     console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr([%X{proposalId:-},%X{traceId:-},%X{spanId:-}]){blue}[%thread] %clr(%-5level) %clr(%logger{36}){magenta} - %msg%n"
+
+scheduling:
+  deadline:
+    enabled: true
+    fixed-delay-ms: 1000

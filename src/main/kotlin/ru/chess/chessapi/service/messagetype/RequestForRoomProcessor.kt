@@ -23,10 +23,16 @@ class RequestForRoomProcessor(
                 "user: ${userRoomCandidate.user}, " +
                 "actual until: ${userRoomCandidate.activeUntil}"
         }
-        wsSender.saveSessionAndSendNewSessionMessage(userRoomCandidate.user.id!!, session)
+        wsSender.saveSessionAndSendNewSessionMessage(
+            userRoomCandidate.user.id!!,
+            emptyList(),
+            null,
+            session
+        )
 
         // create room if it possible
         val rooms = distributorService.searchCandidatesAndCreateRooms()
+        logger.info { "created rooms: $rooms" }
         rooms.forEach { wsSender.sendRoomCreatedMessage(it) }
     }
 

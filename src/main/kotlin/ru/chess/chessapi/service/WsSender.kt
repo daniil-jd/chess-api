@@ -6,20 +6,21 @@ import org.springframework.stereotype.Service
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import ru.chess.chessapi.entity.RoomEntity
-import ru.chess.chessapi.service.sessions.MessagesNotSendStateService
 import ru.chess.chessapi.service.sessions.UserSessionStateService
 import ru.chess.chessapi.web.websocket.message.MessageDto
+import ru.chess.chessapi.web.websocket.message.MoveAcceptedMessage
 import ru.chess.chessapi.web.websocket.message.NewWsSession
 import ru.chess.chessapi.web.websocket.message.RoomFoundMessageDto
 import ru.chess.chessapi.web.websocket.message.enums.MessageType
 import java.io.IOException
+import java.time.Instant
 import java.util.*
 
 @Service
 class WsSender(
     private val mapper: ObjectMapper,
-    private val messagesNotSendStateService: MessagesNotSendStateService,
     private val userSessionStateService: UserSessionStateService,
+    private val timeService: TimeService
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -36,8 +37,6 @@ class WsSender(
                 "can't send message $message to user ($userId), something wrong with ws session " +
                     "(id: ${wsSession.id}, is open: ${wsSession.isOpen}), error: ${ex.message}"
             }
-            // в случае ошибки отправки сохраняем сообщение для попытки ретрая в будущем
-            messagesNotSendStateService.addMessage(userId, message)
         }
         logger.info { "successfully sent message to user: $message, user: $userId" }
     }
@@ -46,21 +45,26 @@ class WsSender(
         userSessionStateService.getByUserId(userIdToSend)?.let {
             sendMessage(userIdToSend, message, it)
         } ?: run {
-            // в случае ошибки сохраняем сообщения и отправляем позже
             logger.warn {
                 "session for userId: $userIdToSend not found. " +
                     "need to reconnect via ws for user"
             }
-            messagesNotSendStateService.addMessage(userIdToSend, message)
         }
     }
 
-    fun saveSessionAndSendNewSessionMessage(userId: UUID, session: WebSocketSession) {
+    fun saveSessionAndSendNewSessionMessage(
+        userId: UUID,
+        moveAcceptedMessages: List<MoveAcceptedMessage>,
+        roomCreatedAt: Instant?,
+        session: WebSocketSession
+    ) {
         userSessionStateService.add(userId, session)
         val message = NewWsSession(
             messageType = MessageType.NEW_WS,
             backendUserId = userId,
-            sessionId = session.id
+            sessionId = session.id,
+            turns = moveAcceptedMessages,
+            matchServerTimeMs = roomCreatedAt?.toEpochMilli()
         )
         sendMessage(userId, message, session)
     }
@@ -75,22 +79,22 @@ class WsSender(
         val session2 = userSessionStateService.getByUserId(user2.id!!)
 
         val message1 = RoomFoundMessageDto(
-            messageType = MessageType.ROOM_FOUND,
             backendUserId = user1.id!!,
             room = room.id!!,
             opponentName = user2.username,
             playerSide = user1Side,
-            sessionId = session1!!.id
+            sessionId = session1!!.id,
+            matchServerTimeMs = room.updatedAt ?: timeService.getNowInstant()
         )
         sendMessage(user1.id!!, message1, session1)
 
         val message2 = RoomFoundMessageDto(
-            messageType = MessageType.ROOM_FOUND,
             backendUserId = user2.id!!,
             room = room.id!!,
             opponentName = user1.username,
             playerSide = user2Side,
-            sessionId = session2!!.id
+            sessionId = session2!!.id,
+            matchServerTimeMs = room.updatedAt ?: timeService.getNowInstant()
         )
         sendMessage(user2.id!!, message2, session2)
     }

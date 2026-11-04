@@ -7,7 +7,7 @@ import java.util.*
 data class Pong(
     override val messageType: MessageType,
     val backendUserId: UUID,
-    val roomId: UUID,
-    val whiteStatus: PingPongStatus,
-    val blackStatus: PingPongStatus
+    val roomId: UUID?,
+    val whiteStatus: PingPongStatus?,
+    val blackStatus: PingPongStatus?
 ): MessageDto

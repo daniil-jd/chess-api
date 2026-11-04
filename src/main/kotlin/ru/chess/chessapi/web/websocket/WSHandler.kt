@@ -4,24 +4,12 @@ import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.socket.*
-import ru.chess.chessapi.entity.RoomEntity
-import ru.chess.chessapi.service.DistributorService
 import ru.chess.chessapi.service.MessageConvertorService
-import ru.chess.chessapi.service.messagetype.CancelMatchProcessor
-import ru.chess.chessapi.service.messagetype.ChessMoveProcessor
-import ru.chess.chessapi.service.messagetype.MatchFinishProcessor
-import ru.chess.chessapi.service.messagetype.PingPongProcessor
-import ru.chess.chessapi.service.messagetype.RequestForRoomProcessor
-import ru.chess.chessapi.service.messagetype.WsRetryProcessor
+import ru.chess.chessapi.service.messagetype.*
 import ru.chess.chessapi.service.sessions.SessionStateService
 import ru.chess.chessapi.service.sessions.SessionsAggregatorService
 import ru.chess.chessapi.service.sessions.UserSessionStateService
-import ru.chess.chessapi.utils.preparePongMessage
 import ru.chess.chessapi.web.websocket.message.*
-import ru.chess.chessapi.web.websocket.message.enums.MessageType
-import java.io.IOException
-import java.util.*
-import java.util.concurrent.CopyOnWriteArrayList
 
 @Component
 class WSHandler(

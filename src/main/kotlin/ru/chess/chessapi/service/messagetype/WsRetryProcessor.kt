@@ -3,9 +3,10 @@ package ru.chess.chessapi.service.messagetype
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.WebSocketSession
+import ru.chess.chessapi.exception.ActiveRoomDoesNotExistByUserIdException
 import ru.chess.chessapi.service.DistributorService
 import ru.chess.chessapi.service.WsSender
-import ru.chess.chessapi.service.sessions.MessagesNotSendStateService
+import ru.chess.chessapi.service.sessions.RoomAcceptedMessagesStateService
 import ru.chess.chessapi.service.sessions.SessionsAggregatorService
 import ru.chess.chessapi.service.sessions.UserSessionStateService
 import ru.chess.chessapi.web.websocket.message.RequestForWsRetryDto
@@ -15,7 +16,7 @@ class WsRetryProcessor(
     private val distributorService: DistributorService,
     private val wsSender: WsSender,
     private val userSessionStateService: UserSessionStateService,
-    private val messagesNotSendStateService: MessagesNotSendStateService,
+    private val roomAcceptedMessagesStateService: RoomAcceptedMessagesStateService,
     private val sessionsAggregatorService: SessionsAggregatorService
 ) {
 
@@ -34,25 +35,17 @@ class WsRetryProcessor(
             }
         }
 
-        val room = distributorService.findNotFinishedRoomByUserId(message.backendUserId) // todo потенциальная проблема
+        // todo потенциальная проблема
+        val room = distributorService.findActiveRoomByUserId(message.backendUserId) ?: throw ActiveRoomDoesNotExistByUserIdException(message.backendUserId)
         logger.info {
             "find not finished room (roomId: ${room.id}) for user (userId: ${message.backendUserId}"
         }
-        wsSender.saveSessionAndSendNewSessionMessage(message.backendUserId, session)
-        // рассылка потерянных сообщений
-        userSessionStateService.getByUserId(message.backendUserId)?.let {
-            messagesNotSendStateService.getMessagesByUserId(message.backendUserId).forEach { unsentMsg ->
-                wsSender.sendMessage(
-                    message.backendUserId,
-                    unsentMsg,
-                    it
-                )
-            }
-        } ?: {
-            logger.warn {
-                "WS_RETRY, error while sending messages to retried user, userId = ${message.backendUserId}"
-            }
-        }
+        wsSender.saveSessionAndSendNewSessionMessage(
+            message.backendUserId,
+            roomAcceptedMessagesStateService.getMessagesByRoomId(room.id!!),
+            room.createdAt,
+            session
+        )
     }
 
 }

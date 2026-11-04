@@ -19,13 +19,13 @@ class PingPongProcessor(
     private val logger = KotlinLogging.logger {}
 
     fun process(message: Ping, session: WebSocketSession) {
-        val room = distributorService.findRoomById(message.roomId)
+        val room = distributorService.findActiveRoomByUserId(message.backendUserId)
 
         val pongMessage = preparePongMessage(
             room = room,
             userId = message.backendUserId,
-            isUser1Online = userSessionStateService.getByUserId(room.user1.id!!) != null,
-            isUser2Online = userSessionStateService.getByUserId(room.user2.id!!) != null,
+            isUser1Online = userSessionStateService.getByUserId(room?.user1?.id) != null,
+            isUser2Online = userSessionStateService.getByUserId(room?.user2?.id) != null,
         )
         wsSender.sendMessageIfSessionExist(message.backendUserId, pongMessage)
     }

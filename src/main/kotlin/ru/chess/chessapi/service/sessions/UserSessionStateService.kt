@@ -18,7 +18,7 @@ class UserSessionStateService {
         }
     }
 
-    fun getByUserId(userId: UUID): WebSocketSession? {
+    fun getByUserId(userId: UUID?): WebSocketSession? {
         return userIdToSession[userId]
     }
 

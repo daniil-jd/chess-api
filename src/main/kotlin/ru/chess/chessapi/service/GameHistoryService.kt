@@ -194,7 +194,7 @@ class GameHistoryService(
             userGameStatus = userGameStatus,
             favourite = false,
             points = points,
-            createdAt = room.createdAt!!.toInstant(ZoneOffset.UTC)
+            createdAt = room.createdAt
         ).also {
             log.info { "game history to save: $it" }
         }
