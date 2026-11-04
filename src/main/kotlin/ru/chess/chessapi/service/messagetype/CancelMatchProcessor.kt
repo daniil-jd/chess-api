@@ -6,18 +6,18 @@ import org.springframework.web.socket.WebSocketSession
 import ru.chess.chessapi.service.DistributorService
 import ru.chess.chessapi.service.WsSender
 import ru.chess.chessapi.service.sessions.UserSessionStateService
+import ru.chess.chessapi.web.websocket.message.MessageDto
 import ru.chess.chessapi.web.websocket.message.RequestForRoomCancelDto
 
 @Service
 class CancelMatchProcessor(
     private val distributorService: DistributorService,
     private val userSessionStateService: UserSessionStateService,
-    private val wsSender: WsSender,
-) {
+) : MessageProcessor<RequestForRoomCancelDto> {
 
     private val logger = KotlinLogging.logger {}
 
-    fun process(message: RequestForRoomCancelDto, session: WebSocketSession) {
+    override fun process(message: RequestForRoomCancelDto, session: WebSocketSession) {
         val userId = userSessionStateService.getUserIdBySession(session.id)
         if (userId != null) {
             distributorService.cancelRoomCandidate(userId)

@@ -44,7 +44,7 @@ fun isUserWinner(user: UserEntity, room: RoomEntity): UserGameStatus {
 }
 
 fun GameHistory.toMatchHistory(): MatchHistoryResponse {
-    val createdAtWithoutSeconds = createdAt!!
+    val createdAtWithoutSeconds = createdAt
         .atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm"))
 

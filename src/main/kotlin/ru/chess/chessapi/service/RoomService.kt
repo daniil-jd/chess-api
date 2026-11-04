@@ -104,18 +104,6 @@ class RoomService(
         return roomRepository.findByIdOrNull(roomId)
     }
 
-    fun findLatest30RoomsByUser(user: UserEntity, gameType: GameType): List<RoomEntity> {
-        return roomRepository.findLatest30RoomsByUser(user.id!!, gameType.toString())
-    }
-
-    fun getCountByUser(user: UserEntity): Long {
-        return roomRepository.countByUser(user.id!!)
-    }
-
-    fun findByUser(user: UserEntity): RoomEntity? {
-        return roomRepository.findByUser(user.id!!)
-    }
-
     fun findActiveRoomByUserForUpdate(userId: UUID): RoomEntity? {
         return roomRepository.findActiveByUserForUpdate(userId, timeService.getNowInstant())
     }

@@ -7,6 +7,7 @@ import ru.chess.chessapi.service.DistributorService
 import ru.chess.chessapi.service.TimeService
 import ru.chess.chessapi.service.WsSender
 import ru.chess.chessapi.service.sessions.RoomAcceptedMessagesStateService
+import ru.chess.chessapi.web.websocket.message.MessageDto
 import ru.chess.chessapi.web.websocket.message.MoveAcceptedMessage
 import ru.chess.chessapi.web.websocket.message.MoveMessageDto
 
@@ -16,11 +17,11 @@ class ChessMoveProcessor(
     private val wsSender: WsSender,
     private val roomAcceptedMessagesStateService: RoomAcceptedMessagesStateService,
     private val timeService: TimeService
-) {
+) : MessageProcessor<MoveMessageDto> {
 
     private val logger = KotlinLogging.logger {}
 
-    fun process(message: MoveMessageDto, session: WebSocketSession) {
+    override fun process(message: MoveMessageDto, session: WebSocketSession) {
         val room = distributorService.updateRoomHistory(
             message.room, message.move, message.promotionType, message.sideOfMove
         )

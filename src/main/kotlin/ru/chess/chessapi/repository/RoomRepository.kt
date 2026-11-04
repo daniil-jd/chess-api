@@ -1,5 +1,6 @@
 package ru.chess.chessapi.repository
 
+import jakarta.transaction.Transactional
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -9,6 +10,7 @@ import java.util.UUID
 
 interface RoomRepository : JpaRepository<RoomEntity, UUID> {
 
+    @Transactional
     @Query(
         nativeQuery = true,
         value = """
@@ -34,6 +36,7 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
     )
     fun findByUser(userId: UUID): RoomEntity?
 
+    @Transactional
     @Query(
         nativeQuery = true,
         value = """
@@ -44,6 +47,7 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
     )
     fun findActiveByUserForUpdate(userId: UUID, currentInstant: Instant): RoomEntity?
 
+    @Transactional
     @Query(
         nativeQuery = true,
         value = """
@@ -77,6 +81,7 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
     )
     fun countByUser(userId: UUID): Long
 
+    @Transactional
     @Modifying
     @Query(
         nativeQuery = true,

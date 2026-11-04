@@ -16,11 +16,11 @@ class MatchFinishProcessor(
     private val distributorService: DistributorService,
     private val wsSender: WsSender,
     private val roomAcceptedMessagesStateService: RoomAcceptedMessagesStateService
-) {
+) : MessageProcessor<MatchFinishedMessageDto> {
 
     private val logger = KotlinLogging.logger {}
 
-    fun process(message: MatchFinishedMessageDto, session: WebSocketSession) {
+    override fun process(message: MatchFinishedMessageDto, session: WebSocketSession) {
         val room = distributorService.updateRoomHistoryWhenMatchIsOver(
             message.room, message.winnerSide, message.finishType
         )

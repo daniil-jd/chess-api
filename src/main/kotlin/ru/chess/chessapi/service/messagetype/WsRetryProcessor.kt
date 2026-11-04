@@ -18,11 +18,11 @@ class WsRetryProcessor(
     private val userSessionStateService: UserSessionStateService,
     private val roomAcceptedMessagesStateService: RoomAcceptedMessagesStateService,
     private val sessionsAggregatorService: SessionsAggregatorService
-) {
+) : MessageProcessor<RequestForWsRetryDto> {
 
     private val logger = KotlinLogging.logger {}
 
-    fun process(message: RequestForWsRetryDto, session: WebSocketSession) {
+    override fun process(message: RequestForWsRetryDto, session: WebSocketSession) {
         // в случае проблем с ws сессией, попытки восстановить сессию
         val existedSession = userSessionStateService.getByUserId(message.backendUserId!!)
         if (existedSession != null) {

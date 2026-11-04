@@ -19,7 +19,7 @@ class AuthCodeService {
 
     fun generateShortAuthCode(uuidToParse: UUID): String {
         val significantBits = uuidToParse.mostSignificantBits
-        val squids = Sqids(alphabet = ALPHABET)
+        val squids = Sqids(alphabet = ALPHABET, minLength = SUBSTRING_END_POS - DASH.length)
         val squidsResult = squids.encode(splitBigLongToLongList(significantBits))
         return substringSquidAndAddDash(squidsResult)
     }
@@ -53,30 +53,30 @@ class AuthCodeService {
 
                 when {
                     c1.isLetter() && c2.isLetter() -> {
-                        // буква + буква → буква
+                        // буква + буква = буква
                         val base = if (c1.isUpperCase()) 'A' else 'a'
                         val n1 = c1.lowercaseChar() - 'a'
                         val n2 = c2.lowercaseChar() - 'a'
                         val sum = (n1 + n2) % 26
-                        append((base + sum).toChar())
+                        append((base + sum))
                     }
                     c1.isDigit() && c2.isDigit() -> {
-                        // цифра + цифра → цифра
+                        // цифра + цифра = цифра
                         val n1 = c1.digitToInt()
                         val n2 = c2.digitToInt()
                         val sum = (n1 + n2) % 10
                         append(sum.digitToChar())
                     }
                     c1.isLetter() && c2.isDigit() -> {
-                        // буква + цифра → буква
+                        // буква + цифра = буква
                         val base = if (c1.isUpperCase()) 'A' else 'a'
                         val n1 = c1.lowercaseChar() - 'a'
                         val n2 = c2.digitToInt()
                         val sum = (n1 + n2) % 26
-                        append((base + sum).toChar())
+                        append((base + sum))
                     }
                     c1.isDigit() && c2.isLetter() -> {
-                        // цифра + буква → цифра
+                        // цифра + буква = цифра
                         val n1 = c1.digitToInt()
                         val n2 = c2.lowercaseChar() - 'a'  // a=0, b=1, ...
                         val sum = (n1 + n2) % 10
@@ -88,7 +88,7 @@ class AuthCodeService {
                     }
                 }
             }
-            // добавляем "хвост" более длинной строки
+            // "хвост" более длинной строки
             if (s1.length > minLength) append(s1.substring(minLength))
             else if (s2.length > minLength) append(s2.substring(minLength))
         }

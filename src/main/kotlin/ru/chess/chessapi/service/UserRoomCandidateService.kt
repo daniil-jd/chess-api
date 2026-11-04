@@ -54,7 +54,7 @@ class UserRoomCandidateService(
         var slice = userRoomCandidateRepository.findAllByActiveUntilIsGreaterThanEqual(
             currentTime, PageRequest.of(ZERO_PAGE, BATCH_SIZE)
         )
-        val result = slice.content
+        val result = slice.content.toMutableList()
         while (slice.hasNext()) { // todo надо ли все грузить? если первые 30 только черные, надо ли грузить еще?
             slice = userRoomCandidateRepository.findAllByActiveUntilIsGreaterThanEqual(currentTime, slice.nextPageable())
             result.addAll(slice.content)

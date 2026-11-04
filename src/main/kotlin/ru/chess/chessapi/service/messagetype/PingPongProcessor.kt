@@ -14,11 +14,11 @@ class PingPongProcessor(
     private val distributorService: DistributorService,
     private val userSessionStateService: UserSessionStateService,
     private val wsSender: WsSender,
-) {
+) : MessageProcessor<Ping> {
 
     private val logger = KotlinLogging.logger {}
 
-    fun process(message: Ping, session: WebSocketSession) {
+    override fun process(message: Ping, session: WebSocketSession) {
         val room = distributorService.findActiveRoomByUserId(message.backendUserId)
 
         val pongMessage = preparePongMessage(

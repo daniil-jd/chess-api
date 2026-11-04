@@ -11,11 +11,11 @@ import ru.chess.chessapi.web.websocket.message.RequestForRoomMessageDto
 class RequestForRoomProcessor(
     private val distributorService: DistributorService,
     private val wsSender: WsSender
-) {
+) : MessageProcessor<RequestForRoomMessageDto> {
 
     private val logger = KotlinLogging.logger {}
 
-    fun process(message: RequestForRoomMessageDto, session: WebSocketSession) {
+    override fun process(message: RequestForRoomMessageDto, session: WebSocketSession) {
         val userRoomCandidate = distributorService.createUserRoomCandidate(message)
         logger.info {
             "created user-room-candidate, " +

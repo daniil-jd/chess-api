@@ -28,8 +28,7 @@ class RoomAcceptedMessagesStateService {
     }
 
     fun clearForBothRoomUsers(room: RoomEntity) {
-        clearByUserid(room.user1.id!!)
-        clearByUserid(room.user2.id!!)
+        clearByUserid(room.id!!)
     }
 
     fun clearByUserid(rooId: UUID) {
