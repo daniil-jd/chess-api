@@ -7,6 +7,7 @@ import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.exception.MatchIsNotOverException
 import ru.chess.chessapi.exception.RoomDoesNotExistException
 import ru.chess.chessapi.exception.UserDoesNotExistException
+import ru.chess.chessapi.utils.toDto
 import ru.chess.chessapi.utils.toMatchHistory
 import ru.chess.chessapi.web.dto.response.HistoryRoomResponse
 import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
@@ -73,24 +74,17 @@ class RoomHistorySearchService(
             addAll(gameHistoryService.findLast30ByUserAndGameType(user, GameType.PSEUDO))
             addAll(gameHistoryService.findLast30ByUserAndGameType(user, GameType.LOCAL))
         }
+            // todo fix me properly
+            // в бд есть room без winType, для которых создалась история
+            .filter { it.room.winType != null }
 
-        val matchStatistic = games
-            .groupBy { game -> game.gameType }
-            .mapValues { (key, values) ->
-                var won = 0
-                var lost = 0
-                var draw = 0
-
-                values.forEach { game ->
-                    when (game.userGameStatus) {
-                        UserGameStatus.LOSE -> lost++
-                        UserGameStatus.DRAW -> draw++
-                        UserGameStatus.WIN -> won++
-                    }
-                }
-
-                RoomHistorySearchResponse.MatchStatistic(key, won = won, lost = lost, draw = draw)
-            }.values.toList()
+        // match statistic for all matches by it type (not only 30)
+        val matchStatistic = mutableListOf<RoomHistorySearchResponse.MatchStatistic>().apply {
+            gameHistoryService.getGameStatsNative(user, GameType.ONLINE)?.toDto()?.apply { add(this) }
+            gameHistoryService.getGameStatsNative(user, GameType.BOT)?.toDto()?.apply { add(this) }
+            gameHistoryService.getGameStatsNative(user, GameType.PSEUDO)?.toDto()?.apply { add(this) }
+            gameHistoryService.getGameStatsNative(user, GameType.LOCAL)?.toDto()?.apply { add(this) }
+        }
 
         val allFavouritesByUser = gameHistoryService.findAllByUserAndFavourite(user, true)
 
@@ -99,6 +93,7 @@ class RoomHistorySearchService(
             signature = user.signature,
             matchStatistics = matchStatistic,
             favouritesHistory = allFavouritesByUser.map { it.toMatchHistory() },
+            points = user.totalPoints,
             matchesHistory = games.map { it.toMatchHistory() }
         )
     }

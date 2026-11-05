@@ -1,5 +1,15 @@
 package ru.chess.chessapi.web.websocket.message.enums
 
 enum class MessageType {
-    REQUEST_FOR_ROOM, ROOM_FOUND, CHESS_MOVE, MATCH_FINISHED, REQUEST_FOR_ROOM_CANCEL
+    REQUEST_FOR_ROOM,
+    ROOM_FOUND,
+    CHESS_MOVE,
+    CHESS_MOVE_ACCEPTED,
+    MATCH_FINISHED,
+    REQUEST_FOR_ROOM_CANCEL,
+    WS_RETRY,
+    NEW_WS,
+    // для маркеров состояния
+    PING,
+    PONG
 }

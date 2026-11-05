@@ -1,0 +1,8 @@
+build.version: test-version
+
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:14.9:///replenishment-calculator
+
+
+

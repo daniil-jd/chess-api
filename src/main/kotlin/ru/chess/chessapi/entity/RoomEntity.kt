@@ -12,9 +12,13 @@ import jakarta.persistence.OneToOne
 import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import org.hibernate.annotations.CreationTimestamp
+import org.hibernate.annotations.SourceType
+import org.hibernate.annotations.UpdateTimestamp
 import ru.chess.chessapi.web.websocket.message.enums.FinishType
 import ru.chess.chessapi.web.websocket.message.enums.GameType
+import ru.chess.chessapi.web.websocket.message.enums.RoomStatus
 import ru.chess.chessapi.web.websocket.message.enums.SideType
+import java.time.Instant
 import java.time.LocalDateTime
 import java.util.*
 
@@ -47,6 +51,11 @@ data class RoomEntity(
     var winnerSide: SideType?,
     @Enumerated(EnumType.STRING)
     var winType: FinishType?,
-    @CreationTimestamp
-    var createdAt: LocalDateTime? = null
+    @Enumerated(EnumType.STRING)
+    var lastMoveSide: SideType?,
+    @Enumerated(EnumType.STRING)
+    var roomStatus: RoomStatus,
+    var createdAt: Instant,
+    var updatedAt: Instant?,
+    var deadlineAt: Instant?
 )

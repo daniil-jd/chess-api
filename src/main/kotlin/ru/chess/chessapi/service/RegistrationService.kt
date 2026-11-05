@@ -19,12 +19,12 @@ class RegistrationService(
             if (user != null) {
                 throw UserAlreadyExistException(name)
             }
-            val createdUser = userService.save(UserEntity(username = name, signature = signature, rating = 0))
+            val createdUser = userService.save(UserEntity(username = name, signature = signature, totalPoints = 0))
             return RegistrationResponse(
                 userId = createdUser.id.toString(),
                 number = createdUser.serialNumber!!,
                 name = createdUser.username,
-                rating = createdUser.rating
+                rating = createdUser.totalPoints
             )
         }
     }

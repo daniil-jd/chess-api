@@ -5,17 +5,18 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
-import ru.chess.chessapi.exception.UserDoesNotExistException
-import ru.chess.chessapi.exception.UserNotInRoomException
+import ru.chess.chessapi.exception.ActiveRoomAlreadyExistException
 import ru.chess.chessapi.repository.RoomRepository
 import ru.chess.chessapi.web.websocket.message.enums.FinishType
 import ru.chess.chessapi.web.websocket.message.enums.GameType
+import ru.chess.chessapi.web.websocket.message.enums.RoomStatus
 import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.*
 
 @Service
 class RoomService(
-    private val roomRepository: RoomRepository
+    private val roomRepository: RoomRepository,
+    private val timeService: TimeService
 ) {
 
     @Transactional
@@ -27,12 +28,13 @@ class RoomService(
         user2SideType: SideType,
         user2Name: String
     ): RoomEntity {
-        val rooms = roomRepository.findAllByUser1AndUser2(user1.id!!, user2.id!!)
+        val rooms = roomRepository.findAllByUser1AndUser2ForUpdate(user1.id!!, user2.id!!)
         if (rooms.isNotEmpty()) {
-            throw Exception("Room already exist for user1 ($user1), user2($user2), room: $rooms")
+            throw ActiveRoomAlreadyExistException(user1.id!!, user2.id!!, rooms[0].id!!)
         }
+        val createdAt = timeService.getNowInstant()
 
-        return roomRepository.save(
+        return roomRepository.saveAndFlush(
             RoomEntity(
                 user1 = user1,
                 user1Side = user1SideType,
@@ -43,7 +45,12 @@ class RoomService(
                 gameType = GameType.ONLINE,
                 history = null,
                 winnerSide = null,
-                winType = null
+                winType = null,
+                roomStatus = RoomStatus.ACTIVE,
+                lastMoveSide = null,
+                deadlineAt = timeService.getRoomDeadLineInstant(),
+                createdAt = createdAt,
+                updatedAt = createdAt
             )
         )
     }
@@ -61,10 +68,11 @@ class RoomService(
         winnerSide: SideType?,
         winType: FinishType
     ): RoomEntity {
-        val rooms = roomRepository.findAllByUser1AndUser2(user1.id!!, user2.id!!)
+        val rooms = roomRepository.findAllByUser1AndUser2ForUpdate(user1.id!!, user2.id!!)
         if (rooms.isNotEmpty()) {
-            throw Exception("Room already exist for user1 ($user1), user2($user2), room: $rooms")
+            throw ActiveRoomAlreadyExistException(user1.id!!, user2.id!!, rooms[0].id!!)
         }
+        val createdAt = timeService.getNowInstant()
 
         return roomRepository.save(
             RoomEntity(
@@ -77,21 +85,31 @@ class RoomService(
                 gameType = gameType,
                 history = history,
                 winnerSide = winnerSide,
-                winType = winType
+                winType = winType,
+                roomStatus = RoomStatus.FINISHED,
+                lastMoveSide = winnerSide,
+                deadlineAt = timeService.getRoomDeadLineInstant(),
+                createdAt = createdAt,
+                updatedAt = createdAt
             )
         )
+    }
+
+    @Transactional
+    fun updateStatusIfDeadlineAtExpired() {
+        roomRepository.markExpiredDeadline(timeService.getNowInstant())
     }
 
     fun findRoomById(roomId: UUID): RoomEntity? {
         return roomRepository.findByIdOrNull(roomId)
     }
 
-    fun findLatest30RoomsByUser(user: UserEntity, gameType: GameType): List<RoomEntity> {
-        return roomRepository.findLatest30RoomsByUser(user.id!!, gameType.toString())
+    fun findActiveRoomByUserForUpdate(userId: UUID): RoomEntity? {
+        return roomRepository.findActiveByUserForUpdate(userId, timeService.getNowInstant())
     }
 
-    fun getCountByUser(user: UserEntity): Long {
-        return roomRepository.countByUser(user.id!!)
+    fun findActiveRoomForUpdate(userId: UUID): RoomEntity? {
+        return roomRepository.findActiveForUpdate(userId, timeService.getNowInstant())
     }
 
     @Transactional

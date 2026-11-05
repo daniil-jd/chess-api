@@ -1,0 +1,28 @@
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="add_updated_at_room_status_deadline_at_fields_to_rooms2_table.xml" author="daniil.zharnov">
+        <addColumn tableName="chess_rooms_2">
+            <column name="last_move_side" type="text">
+                <constraints nullable="true"/>
+            </column>
+            <column name="room_status" type="text" defaultValue="ACTIVE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp without time zone">
+                <constraints nullable="true"/>
+            </column>
+            <column name="deadline_at" type="timestamp without time zone">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        
+        <sql>
+            create index idx_chess_rooms_2_active_deadline
+            on chess_rooms_2 (deadline_at)
+            where room_status = 'ACTIVE';
+        </sql>
+
+    </changeSet>
+</databaseChangeLog>

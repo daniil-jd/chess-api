@@ -1,195 +1,94 @@
 package ru.chess.chessapi.web.websocket
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.socket.*
-import ru.chess.chessapi.entity.RoomEntity
-import ru.chess.chessapi.entity.UserEntity
-import ru.chess.chessapi.service.DistributorService
 import ru.chess.chessapi.service.MessageConvertorService
+import ru.chess.chessapi.service.messagetype.*
+import ru.chess.chessapi.service.sessions.SessionStateService
+import ru.chess.chessapi.service.sessions.SessionsAggregatorService
+import ru.chess.chessapi.service.sessions.UserSessionStateService
 import ru.chess.chessapi.web.websocket.message.*
-import ru.chess.chessapi.web.websocket.message.enums.MessageType
-import java.io.IOException
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 
 @Component
 class WSHandler(
-    private val mapper: ObjectMapper,
+    private val sessionStateService: SessionStateService,
+    private val sessionsAggregatorService: SessionsAggregatorService,
+    private val userSessionStateService: UserSessionStateService,
     private val messageConvertorService: MessageConvertorService,
-    private val distributorService: DistributorService
+    private val cancelMatchProcessor: CancelMatchProcessor,
+    private val chessMoveProcessor: ChessMoveProcessor,
+    private val matchFinishProcessor: MatchFinishProcessor,
+    private val pingPongProcessor: PingPongProcessor,
+    private val requestForRoomProcessor: RequestForRoomProcessor,
+    private val wsRetryProcessor: WsRetryProcessor
 ) : WebSocketHandler {
 
     private val logger = KotlinLogging.logger {}
 
-    private var sessions = ConcurrentHashMap<String, WebSocketSession>()
-    private var userIdToSessions = ConcurrentHashMap<UUID, WebSocketSession>()
-
     override fun afterConnectionEstablished(session: WebSocketSession) {
-        sessions[session.id] = session
+        sessionStateService.add(session)
     }
 
     @Transactional
     override fun handleMessage(session: WebSocketSession, webSocketMessage: WebSocketMessage<*>) {
         if (webSocketMessage is TextMessage) {
             logger.info { "receive text message: ${webSocketMessage.payload}" }
+            val message = messageConvertorService.convertMessageDtoFromTextMessage(webSocketMessage)
+            if (message == null) {
+                logger.warn {
+                    "received message, that can't be converted: ${webSocketMessage.payload}"
+                }
+                return
+            }
+            logger.info { "received message type: ${message.messageType}, message body: ${webSocketMessage.payload}" }
 
-            // todo: log before this block
-            // todo map dto only by TYPE!
-            when (val message = messageConvertorService.convertMessageDtoFromTextMessage(webSocketMessage)) {
+            when (message) {
                 is RequestForRoomMessageDto -> {
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    val userRoomCandidate = distributorService.createUserRoomCandidate(message)
-                    logger.info {
-                        "created user-room-candidate, " +
-                            "id: ${userRoomCandidate.id}, " +
-                            "user: ${userRoomCandidate.user}, " +
-                            "actual until: ${userRoomCandidate.activeUntil}"
-                    }
-                    putDefaultPrincipalToSessionIfNotExist(session, userRoomCandidate.user.id!!)
-
-                    // create room if it possible
-                    val rooms = distributorService.searchCandidatesAndCreateRooms()
-                    rooms.forEach {
-                        sendRoomCreatedMessage(it)
-                    }
+                    // для этого типа возможна неактивная сессия
+                    requestForRoomProcessor.process(message, session)
                 }
 
-                is MoveMessageDto -> {
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    val userToSend = distributorService.updateRoomHistoryAndReturnAnotherUser(
-                        message.room, message.sideOfMove, message.move, message.promotionType
-                    )
-                    logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
-                    val messageToAnotherUser = MoveMessageDto(
-                        messageType = MessageType.CHESS_MOVE,
-                        backendUserId = userToSend.id!!,
-                        room = message.room,
-                        sideOfMove = message.sideOfMove,
-                        move = message.move,
-                        promotionType = message.promotionType
-                    )
-                    userIdToSessions.forEach { (userId, wsSession) ->
-                        if (userId == userToSend.id) {
-                            sendMessageToAnotherUser(messageToAnotherUser, userToSend, wsSession)
-                        }
-                    }
-                }
-
-                is MatchFinishedMessageDto -> {
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    val userToSend = distributorService.updateRoomHistoryAndReturnAnotherUserWhenMatchIsOver(
-                        message.room, message.winnerSide, message.finishType
-                    )
-                    logger.info { "found another user in room (room id: ${message.room}), another user: $userToSend" }
-                    val messageToAnotherUser = MatchFinishedMessageDto(
-                        messageType = MessageType.MATCH_FINISHED,
-                        room = message.room,
-                        winnerSide = message.winnerSide,
-                        finishType = message.finishType
-                    )
-                    userIdToSessions[userToSend.id]?.let {
-                        sendMessageToAnotherUser(messageToAnotherUser, userToSend, it)
-                    }
-                }
-
-                is RequestForRoomCancelDto -> {
-                    logger.info { "received message type: ${message.messageType}, message body: $message" }
-                    if (message.messageType == MessageType.REQUEST_FOR_ROOM_CANCEL) {
-                        val userId = getUserIdBySession(session)
-                        if (userId != null) {
-                            distributorService.cancelRoomCandidate(userId)
-                        } else {
-                            logger.warn { "Empty userId, can't find by session." }
-                        }
-                    }
+                is RequestForWsRetryDto -> {
+                    // для этого типа возможна неактивная сессия
+                    wsRetryProcessor.process(message, session)
                 }
 
                 else -> {
-                    logger.info { "Can't determine type of message: $webSocketMessage" }
+                    // для остальных типов сообщений сессия должна быть активна
+                    if (!userSessionStateService.isUserSessionActive(session, webSocketMessage.payload)) return
+
+                    when(message) {
+                        is MoveMessageDto -> chessMoveProcessor.process(message, session)
+
+                        is MatchFinishedMessageDto -> matchFinishProcessor.process(message, session)
+
+                        is RequestForRoomCancelDto -> cancelMatchProcessor.process(message, session)
+
+                        is Ping -> pingPongProcessor.process(message, session)
+
+                        else -> logger.info { "Can't determine type of message: $webSocketMessage" }
+                    }
                 }
             }
-
         }
-    }
-
-    fun sendRoomCreatedMessage(room: RoomEntity) {
-        val user1 = room.user1
-        val user1Side = room.user1Side
-        val user2 = room.user2
-        val user2Side = room.user2Side
-
-        userIdToSessions.forEach { (userId, wsSession) ->
-            try {
-                if (userId == user1.id) {
-                    val message = RoomFoundMessageDto(
-                        messageType = MessageType.ROOM_FOUND,
-                        backendUserId = userId,
-                        room = room.id!!,
-                        opponentName = user2.username,
-                        playerSide = user1Side
-                    )
-                    sendMessageToAnotherUser(message, user1, wsSession)
-                } else if (userId == user2.id) {
-                    val message = RoomFoundMessageDto(
-                        messageType = MessageType.ROOM_FOUND,
-                        backendUserId = userId,
-                        room = room.id!!,
-                        opponentName = user1.username,
-                        playerSide = user2Side
-                    )
-                    sendMessageToAnotherUser(message, user2, wsSession)
-                }
-            } catch (ex: IOException) {
-                logger.error(ex) { "Some exception during sending through web socket: ${ex.message}" }
-            }
-        }
-    }
-
-    private fun sendMessageToAnotherUser(message: MessageDto, anotherUser: UserEntity, wsSession: WebSocketSession) {
-        wsSession.sendMessage(TextMessage(mapper.writeValueAsString(message)))
-        logger.info {
-            "successfully sent message to another user: $message, " +
-                "another user: $anotherUser"
-        }
-    }
-
-    private fun putDefaultPrincipalToSessionIfNotExist(session: WebSocketSession, userId: UUID) {
-        userIdToSessions.putIfAbsent(userId, session)
-    }
-
-    private fun getUserIdBySession(session: WebSocketSession): UUID? {
-        logger.info { "trying to find userId by session: " }
-        userIdToSessions.forEach { (userId, wbSession) ->
-            if (session == wbSession) {
-                return userId
-            }
-        }
-        return null
     }
 
     override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
-        throw Exception("ws, transport error, session - ${session.id}, principal - ${session.principal?.name}, exception - ${exception.message}")
+        // не обрабатываем разрыв игрока тут
+        logger.error { "ws, transport error, session - ${session.id}, principal - ${session.principal?.name}, exception - ${exception.message}" }
+        sessionsAggregatorService.removeSessionFromMaps(session, CloseStatus.SERVER_ERROR)
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, closeStatus: CloseStatus) {
+        // обрабатываем разрыв соединения тут
         if (closeStatus.equalsCode(CloseStatus.SERVER_ERROR)) {
             logger.error { "session (${session.id}) already closed before closing." }
         }
-//        sessions.remove(session.id)
-//        session.close(closeStatus)
+        logger.error { "afterConnectionClosed, ws session (${session.id}) is closed, status: $closeStatus" }
 
-        val userIdToSessionIterator = userIdToSessions.iterator()
-        while (userIdToSessionIterator.hasNext()) {
-            val s = userIdToSessionIterator.next()
-            if (s.value.id == session.id) {
-                userIdToSessionIterator.remove()
-                session.close(closeStatus)
-                break
-            }
-        }
+        sessionsAggregatorService.removeSessionFromMaps(session, closeStatus)
     }
 
     override fun supportsPartialMessages(): Boolean = true

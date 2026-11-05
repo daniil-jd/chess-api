@@ -1,0 +1,19 @@
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="alter_rating_in_chess_users_2_table" author="daniil.zharnov">
+        <dropDefaultValue
+                tableName="chess_users_2"
+                columnName="rating"/>
+        <addDefaultValue
+                tableName="chess_users_2"
+                columnName="rating"
+                defaultValueNumeric="0"/>
+        <renameColumn
+                tableName="chess_users_2"
+                oldColumnName="rating"
+                newColumnName="total_points"
+                columnDataType="bigint"/>
+    </changeSet>
+</databaseChangeLog>

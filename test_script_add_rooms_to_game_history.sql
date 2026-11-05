@@ -28,6 +28,7 @@ WITH expanded AS (
              room_id,
              user_side,
              winner_side,
+             created_at,
              row_number() OVER (PARTITION BY user_id ORDER BY created_at) AS match_number
          FROM
              expanded
@@ -38,6 +39,7 @@ WITH expanded AS (
              game_type,
              match_number,
              room_id,
+             created_at,
              CASE
                  WHEN winner_side IS NULL THEN 'DRAW'
                  WHEN user_side = winner_side THEN 'WIN'
@@ -47,15 +49,16 @@ WITH expanded AS (
          FROM
              numbered
      )
-INSERT INTO game_history (user_id, game_type, match_number, room_id, user_game_status, favourite)
+INSERT INTO game_history_1 (user_id,  room_id, game_type, match_number,user_game_status, favourite, created_at)
 SELECT
     user_id,
+    room_id,
     game_type,
     match_number,
-    room_id,
     user_game_status,
-    favourite
+    favourite,
+    created_at
 FROM
     final_data
-    ON CONFLICT (user_id, game_type, match_number) DO nothing
+    ON CONFLICT (user_id, room_id) DO nothing
 ;

@@ -39,5 +39,7 @@ data class GameHistory(
 
     var favourite: Boolean,
 
+    var points: Int = 0,
+
     var createdAt: Instant
 )

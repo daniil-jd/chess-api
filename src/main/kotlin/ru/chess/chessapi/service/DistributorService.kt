@@ -6,7 +6,8 @@ import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.entity.UserRoomCandidateEntity
-import ru.chess.chessapi.exception.RoomDoesNotExistException
+import ru.chess.chessapi.exception.ActiveRoomDoesNotExistByUserIdException
+import ru.chess.chessapi.exception.ActiveRoomDoesNotExistException
 import ru.chess.chessapi.exception.UserDoesNotExistException
 import ru.chess.chessapi.model.CandidatePair
 import ru.chess.chessapi.web.dto.request.AuthBySignatureRequest
@@ -16,6 +17,7 @@ import ru.chess.chessapi.web.dto.response.AuthResponse
 import ru.chess.chessapi.web.websocket.message.RequestForRoomMessageDto
 import ru.chess.chessapi.web.websocket.message.enums.FinishType
 import ru.chess.chessapi.web.websocket.message.enums.PromotionType
+import ru.chess.chessapi.web.websocket.message.enums.RoomStatus
 import ru.chess.chessapi.web.websocket.message.enums.SideType
 import java.util.*
 
@@ -24,7 +26,8 @@ class DistributorService(
     private val userService: UserService,
     private val userRoomCandidateService: UserRoomCandidateService,
     private val roomService: RoomService,
-    private val authCodeService: AuthCodeService
+    private val authCodeService: AuthCodeService,
+    private val timeService: TimeService,
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -40,8 +43,6 @@ class DistributorService(
         }
     }
 
-
-
     @Transactional
     fun searchCandidatesAndCreateRooms(): List<RoomEntity> {
         val candidates = userRoomCandidateService.findActiveUserRoomCandidates()
@@ -52,7 +53,8 @@ class DistributorService(
                 val sideA = candidates[i].userSide
                 for (j in i + 1 until candidates.size) {
                     val sideB = candidates[j].userSide
-                    if ((sideB == findOppositeSide(sideA) || sideB == SideType.RANDOM) &&
+                    if (
+                        (findOppositeSides(sideA).contains(sideB) || sideB == SideType.RANDOM) &&
                         !(temp.contains(candidates[j]) || temp.contains(candidates[i]))
                     ) {
                         pairsToCreate.add(CandidatePair(candidates[j], candidates[i]))
@@ -75,22 +77,23 @@ class DistributorService(
         return emptyList()
     }
 
-    private fun findOppositeSide(side: SideType): SideType {
+    private fun findOppositeSides(side: SideType): List<SideType> {
         return when (side) {
             SideType.WHITE -> {
-                SideType.BLACK
+                listOf(SideType.BLACK, SideType.RANDOM)
             }
 
             SideType.BLACK -> {
-                SideType.WHITE
+                listOf(SideType.WHITE, SideType.RANDOM)
             }
 
             SideType.RANDOM -> {
-                SideType.WHITE
+                listOf(SideType.WHITE, SideType.BLACK, SideType.RANDOM)
             }
         }
     }
 
+    @Transactional
     fun createRoomWithCandidates(
         user1: UserEntity, side1: SideType, user2: UserEntity, side2: SideType
     ): RoomEntity {
@@ -183,8 +186,13 @@ class DistributorService(
         }
     }
 
-    private fun findRoomAndAddHistory(roomId: UUID, move: String, promotionType: PromotionType? = null): RoomEntity {
-        val room = roomService.findRoomById(roomId) ?: throw RoomDoesNotExistException(roomId)
+    private fun findRoomAndAddHistory(
+        roomId: UUID,
+        move: String,
+        promotionType: PromotionType? = null,
+        sideOfMove: SideType
+    ): RoomEntity {
+        val room = roomService.findActiveRoomForUpdate(roomId) ?: throw ActiveRoomDoesNotExistByUserIdException(roomId)
         val sb = if (room.history == null) {
             StringBuilder(move)
         } else {
@@ -193,51 +201,40 @@ class DistributorService(
             } // todo fix null to history
         }
         room.history = sb.toString()
+        room.deadlineAt = timeService.getRoomDeadLineInstant()
+        room.updatedAt = timeService.getNowInstant()
+        room.lastMoveSide = sideOfMove
         return room
     }
 
     @Transactional
-    fun updateRoomHistory(roomId: UUID, move: String, promotionType: PromotionType?): RoomEntity {
-        val room = findRoomAndAddHistory(roomId, move, promotionType)
+    fun updateRoomHistory(
+        roomId: UUID,
+        move: String,
+        promotionType: PromotionType?,
+        sideOfMove: SideType
+    ): RoomEntity {
+        val room = findRoomAndAddHistory(roomId, move, promotionType, sideOfMove)
         return roomService.save(room)
     }
 
     @Transactional
     fun updateRoomHistoryWhenMatchIsOver(
-        roomId: UUID, sideOfMove: SideType, finishType: FinishType
-    ): RoomEntity {
-        val room = findRoomAndAddHistory(roomId, finishType.toString()).also {
-            it.winnerSide = sideOfMove
-            it.winType = finishType
-        }
-        return roomService.save(room)
-    }
-
-    private fun findAnotherUser(room: RoomEntity, sideOfMove: SideType): UserEntity {
-        return if (sideOfMove == room.user1Side) {
-            room.user2
-        } else {
-            room.user1
-        }
-    }
-
-    @Transactional
-    fun updateRoomHistoryAndReturnAnotherUser(
         roomId: UUID,
         sideOfMove: SideType,
-        move: String,
-        promotionType: PromotionType?
-    ): UserEntity {
-        val room = updateRoomHistory(roomId, move, promotionType)
-        return findAnotherUser(room, sideOfMove)
-    }
-
-    @Transactional
-    fun updateRoomHistoryAndReturnAnotherUserWhenMatchIsOver(
-        roomId: UUID, winnerSide: SideType, finishType: FinishType
-    ): UserEntity {
-        val room = updateRoomHistoryWhenMatchIsOver(roomId, winnerSide, finishType)
-        return findAnotherUser(room, findOppositeSide(winnerSide))
+        finishType: FinishType
+    ): RoomEntity {
+        val room = findRoomAndAddHistory(
+            roomId,
+            finishType.toString(),
+            promotionType = null,
+            sideOfMove
+        ).also {
+            it.winnerSide = sideOfMove
+            it.winType = finishType
+            it.roomStatus = RoomStatus.FINISHED
+        }
+        return roomService.save(room)
     }
 
     @Transactional
@@ -280,5 +277,11 @@ class DistributorService(
             user.username = newName
             userService.save(user)
         }
+    }
+
+    @Transactional
+    fun findActiveRoomByUserId(backendUserId: UUID): RoomEntity? {
+        val user = userService.findById(backendUserId) ?: throw UserDoesNotExistException(backendUserId.toString())
+        return roomService.findActiveRoomByUserForUpdate(user.id!!)
     }
 }

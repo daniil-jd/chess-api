@@ -1,8 +1,11 @@
 package ru.chess.chessapi.service
 
+import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.exception.RoomDoesNotExistException
+import ru.chess.chessapi.service.sessions.RoomAcceptedMessagesStateService
+import ru.chess.chessapi.utils.findUserBySide
 import ru.chess.chessapi.web.dto.request.RoomHistorySaveRequest
 import ru.chess.chessapi.web.dto.response.RoomHistorySaveResponse
 import ru.chess.chessapi.web.websocket.message.enums.SideType
@@ -11,25 +14,39 @@ import ru.chess.chessapi.web.websocket.message.enums.SideType
 class RoomHistorySaveService(
     private val roomService: RoomService,
     private val userService: UserService,
-    private val gameHistoryService: GameHistoryService
+    private val gameHistoryService: GameHistoryService,
+    private val roomAcceptedMessagesStateService: RoomAcceptedMessagesStateService
 ) {
+
+    private val log = KotlinLogging.logger {}
 
     @Transactional
     fun saveHistory(request: RoomHistorySaveRequest): RoomHistorySaveResponse {
+        log.info { "request for save history: $request" }
         with(request) {
             val winnerSideFixed = if (!winnerSide.isNullOrBlank()) SideType.valueOf(winnerSide) else null
+            log.info {
+                "save history, roomId: ${request.room}, detected winnerSide: $winnerSideFixed, " +
+                    "winnerSide from request: $winnerSide"
+            }
 
             return if (room != null) {
                 // room is not null -> room & user SHOULD exist already
                 val roomEntity = roomService.findRoomById(room) ?: throw RoomDoesNotExistException(room)
+                val userEntity = roomEntity.findUserBySide(userSide)
                 roomEntity.history = history
                 // if ws socket is broken - need to save winner
                 if (roomEntity.winType == null || roomEntity.winnerSide == null) {
+                    log.info {
+                        "save history, set winType ($finishType) & winnerSide ($winnerSideFixed) for roomId: $room"
+                    }
                     roomEntity.winType = finishType
                     roomEntity.winnerSide = winnerSideFixed
                 }
                 roomService.save(roomEntity)
-                gameHistoryService.saveGameHistoryByRoom(roomEntity)
+                gameHistoryService.saveGameHistoryByRoom(userEntity, roomEntity, opponentType)
+
+                roomAcceptedMessagesStateService.clearForBothRoomUsers(roomEntity)
 
                 RoomHistorySaveResponse(backendUserId = backendUserId!!, roomId = roomEntity.id!!)
             } else {
@@ -62,7 +79,7 @@ class RoomHistorySaveService(
                     winnerSide = winnerSideFixed,
                     winType = finishType
                 )
-                gameHistoryService.saveGameHistoryByRoom(savedRoom)
+                gameHistoryService.saveGameHistoryByRoom(user, savedRoom, opponentType)
                 RoomHistorySaveResponse(backendUserId = user.id!!, roomId = savedRoom.id!!)
             } else {
                 val whiteBot = userService.findBotByColor(isWhite = true)
@@ -79,7 +96,7 @@ class RoomHistorySaveService(
                     winnerSide = winnerSideFixed,
                     winType = finishType
                 )
-                gameHistoryService.saveGameHistoryByRoom(savedRoom)
+                gameHistoryService.saveGameHistoryByRoom(user, savedRoom, opponentType)
                 RoomHistorySaveResponse(backendUserId = user.id!!, roomId = savedRoom.id!!)
             }
         }

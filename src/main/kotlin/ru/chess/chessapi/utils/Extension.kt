@@ -4,15 +4,24 @@ import ru.chess.chessapi.entity.GameHistory
 import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.exception.UserNotInRoomException
+import ru.chess.chessapi.model.GameStatsProjection
 import ru.chess.chessapi.web.dto.response.MatchHistoryResponse
+import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
+import ru.chess.chessapi.web.websocket.message.Pong
+import ru.chess.chessapi.web.websocket.message.enums.FinishType
+import ru.chess.chessapi.web.websocket.message.enums.GameType
+import ru.chess.chessapi.web.websocket.message.enums.MessageType
+import ru.chess.chessapi.web.websocket.message.enums.PingPongStatus
+import ru.chess.chessapi.web.websocket.message.enums.SideType
 import ru.chess.chessapi.web.websocket.message.enums.UserGameStatus
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 fun isUserWinner(user: UserEntity, room: RoomEntity): UserGameStatus {
-    val userSide = if (room.user1 == user) {
+    val userSide = if (room.user1.id == user.id) {
         room.user1Side
-    } else if (room.user2 == user) {
+    } else if (room.user2.id == user.id) {
         room.user2Side
     } else {
         throw UserNotInRoomException(user.id!!, room.id!!)
@@ -35,7 +44,7 @@ fun isUserWinner(user: UserEntity, room: RoomEntity): UserGameStatus {
 }
 
 fun GameHistory.toMatchHistory(): MatchHistoryResponse {
-    val createdAtWithoutSeconds = createdAt!!
+    val createdAtWithoutSeconds = createdAt
         .atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm"))
 
@@ -74,5 +83,96 @@ fun GameHistory.toMatchHistory(): MatchHistoryResponse {
                 finishType = room.winType!!
             )
         }
+    }
+}
+
+fun RoomEntity.findUserBySide(userSideType: SideType): UserEntity {
+    return if (user1Side == userSideType) user1 else user2
+}
+
+fun RoomEntity.findAnotherUser(user: UserEntity): UserEntity {
+    return if (user1.id == user.id!!)
+        user2
+    else
+        user1
+}
+
+fun RoomEntity.findAnotherUser(sideOfMove: SideType): UserEntity {
+    return if (sideOfMove == user1Side) {
+        user2
+    } else {
+        user1
+    }
+}
+
+fun RoomEntity.findAnotherUserWhenMatchFinished(winnerSide: SideType, finishType: FinishType): UserEntity {
+    return when (finishType) {
+        in setOf(FinishType.SURRENDER, FinishType.TIMEOUT, FinishType.DRAW) -> {
+            findAnotherUser(winnerSide.findOppositeSideWhenMatchIsFinished()) // todo
+        }
+        FinishType.CHECKMATE -> {
+            findAnotherUser(winnerSide)
+        }
+        else -> {
+            findAnotherUser(winnerSide)
+        }
+    }
+}
+
+fun SideType.findOppositeSideWhenMatchIsFinished(): SideType {
+    return when (this) {
+        SideType.WHITE -> {
+            SideType.BLACK
+        }
+        else -> {
+            SideType.WHITE
+        }
+    }
+}
+
+fun GameStatsProjection.toDto(): RoomHistorySearchResponse.MatchStatistic {
+    return RoomHistorySearchResponse.MatchStatistic(
+        gameType = GameType.valueOf(gameType),
+        won = wins,
+        lost = losses,
+        draw = draws
+    )
+}
+
+fun preparePongMessage(
+    room: RoomEntity?,
+    userId: UUID,
+    isUser1Online: Boolean,
+    isUser2Online: Boolean
+): Pong {
+    if (room != null) {
+        val isUser1IsWhite = room.user1Side == SideType.WHITE
+
+        val whiteStatus = when {
+            isUser1Online && isUser1IsWhite -> PingPongStatus.ONLINE
+            isUser2Online && !isUser1IsWhite -> PingPongStatus.ONLINE
+            else -> PingPongStatus.OFFLINE
+        }
+        val blackStatus = when {
+            isUser1Online && !isUser1IsWhite -> PingPongStatus.ONLINE
+            isUser2Online && isUser1IsWhite -> PingPongStatus.ONLINE
+            else -> PingPongStatus.OFFLINE
+        }
+
+        return Pong(
+            messageType = MessageType.PONG,
+            backendUserId = userId,
+            roomId = room.id!!,
+            whiteStatus = whiteStatus,
+            blackStatus = blackStatus
+        )
+    } else {
+        return Pong(
+            messageType = MessageType.PONG,
+            backendUserId = userId,
+            roomId = null,
+            whiteStatus = null,
+            blackStatus = null
+        )
     }
 }

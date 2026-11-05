@@ -20,7 +20,7 @@ data class UserEntity(
     var signature: String?,
     @Column(name = "serial_number", insertable = false, updatable = false)
     val serialNumber: Long? = null,
-    val rating: Long,
+    var totalPoints: Long,
     val isBot: Boolean = false,
     var authCode: String? = null,
     @CreationTimestamp
