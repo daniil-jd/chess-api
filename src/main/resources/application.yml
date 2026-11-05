@@ -38,10 +38,10 @@ spring:
     generator:
       WRITE_BIGDECIMAL_AS_PLAIN: true
   mail:
-    host: smtp.gmail.com
+    host: ${SPRING_MAIL_HOST:127.0.0.1}
     port: 587
-    username: helper.spprt.616@gmail.com
-    password: yoltiaraxkmxxqzb
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
