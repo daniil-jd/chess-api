@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import ru.chess.chessapi.TestData.Models.Entity.roomEntity
 import ru.chess.chessapi.TestData.Models.Message.moveAcceptedMessage
+import ru.chess.chessapi.TestData.Models.Message.MOVE_ID
 import ru.chess.chessapi.TestData.Rooms.ROOM_ID
 import ru.chess.chessapi.TestData.Rooms.ROOM_ID_2
 import ru.chess.chessapi.TestData.Users.USER_ID_1
@@ -20,6 +21,36 @@ class RoomAcceptedMessagesStateServiceTest {
     @Test
     fun `getMessagesByRoomId - unknown room`() {
         service.getMessagesByRoomId(ROOM_ID) shouldBe emptyList()
+    }
+
+    @Test
+    fun `getMessageByRoomIdAndMoveId - finds move only in requested room`() {
+        val message = moveAcceptedMessage()
+        val other = message.copy(room = ROOM_ID_2)
+        service.addMessage(ROOM_ID, message)
+        service.addMessage(ROOM_ID_2, other)
+
+        service.getMessageByRoomIdAndMoveId(ROOM_ID, MOVE_ID) shouldBe message
+        service.getMessageByRoomIdAndMoveId(ROOM_ID_2, MOVE_ID) shouldBe other
+        service.getMessageByRoomIdAndMoveId(ROOM_ID, ROOM_ID_2) shouldBe null
+
+        service.clearByRoomId(ROOM_ID)
+
+        service.getMessageByRoomIdAndMoveId(ROOM_ID, MOVE_ID) shouldBe null
+    }
+
+    @Test
+    fun `getLastMoveByRoom - returns highest ply regardless of insertion order`() {
+        val message = moveAcceptedMessage()
+        service.getLastMoveByRoom(ROOM_ID) shouldBe null
+
+        service.addMessage(ROOM_ID, message)
+        service.addMessage(ROOM_ID, message.copy(ply = message.ply - 1))
+        service.addMessage(ROOM_ID_2, message.copy(room = ROOM_ID_2, ply = message.ply + 1))
+
+        service.getLastMoveByRoom(ROOM_ID) shouldBe message.ply
+        service.clearByRoomId(ROOM_ID)
+        service.getLastMoveByRoom(ROOM_ID) shouldBe null
     }
 
     @Test
@@ -44,7 +75,7 @@ class RoomAcceptedMessagesStateServiceTest {
         val snapshot = service.getMessagesByRoomId(ROOM_ID)
 
         service.addMessage(ROOM_ID, second)
-        service.clearByUserid(ROOM_ID)
+        service.clearByRoomId(ROOM_ID)
 
         snapshot shouldBe listOf(first)
         service.getMessagesByRoomId(ROOM_ID) shouldBe emptyList()
@@ -57,7 +88,7 @@ class RoomAcceptedMessagesStateServiceTest {
         service.addMessage(ROOM_ID, message)
         service.addMessage(ROOM_ID_2, other)
 
-        service.clearByUserid(ROOM_ID)
+        service.clearByRoomId(ROOM_ID)
 
         service.getMessagesByRoomId(ROOM_ID) shouldBe emptyList()
         service.getMessagesByRoomId(ROOM_ID_2) shouldBe listOf(other)
@@ -72,7 +103,7 @@ class RoomAcceptedMessagesStateServiceTest {
         val message = moveAcceptedMessage()
         service.addMessage(ROOM_ID, message)
 
-        service.clearByUserid(ROOM_ID_2)
+        service.clearByRoomId(ROOM_ID_2)
 
         service.getMessagesByRoomId(ROOM_ID) shouldBe listOf(message)
     }
@@ -89,7 +120,7 @@ class RoomAcceptedMessagesStateServiceTest {
         service.addMessage(USER_ID_1, userIdRoom1)
         service.addMessage(USER_ID_2, userIdRoom2)
 
-        service.clearForBothRoomUsers(room)
+        service.clearByRoomId(room.id!!)
 
         service.getMessagesByRoomId(ROOM_ID) shouldBe emptyList()
         service.getMessagesByRoomId(ROOM_ID_2) shouldBe listOf(other)
@@ -102,8 +133,8 @@ class RoomAcceptedMessagesStateServiceTest {
         val room = roomEntity(id = ROOM_ID)
         service.addMessage(ROOM_ID, moveAcceptedMessage())
 
-        service.clearForBothRoomUsers(room)
-        service.clearForBothRoomUsers(room)
+        service.clearByRoomId(room.id!!)
+        service.clearByRoomId(room.id!!)
 
         service.getMessagesByRoomId(ROOM_ID) shouldBe emptyList()
     }

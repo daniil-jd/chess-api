@@ -7,6 +7,7 @@ import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.exception.ActiveRoomAlreadyExistException
 import ru.chess.chessapi.repository.RoomRepository
+import ru.chess.chessapi.utils.winnerSideForExpiredRoom
 import ru.chess.chessapi.web.websocket.message.enums.FinishType
 import ru.chess.chessapi.web.websocket.message.enums.GameType
 import ru.chess.chessapi.web.websocket.message.enums.RoomStatus
@@ -96,8 +97,17 @@ class RoomService(
     }
 
     @Transactional
-    fun updateStatusIfDeadlineAtExpired() {
-        roomRepository.markExpiredDeadline(timeService.getNowInstant())
+    fun updateStatusIfDeadlineAtExpired(): List<RoomEntity> {
+        val now = timeService.getNowInstant()
+        val expiredRooms = roomRepository.findByExpiredDeadline(now)
+        expiredRooms.forEach {
+            it.winnerSide = it.winnerSideForExpiredRoom()
+            it.winType = FinishType.TIMEOUT
+            it.roomStatus = RoomStatus.EXPIRED
+            it.updatedAt = now
+        }
+        roomRepository.saveAll(expiredRooms)
+        return expiredRooms
     }
 
     fun findRoomById(roomId: UUID): RoomEntity? {

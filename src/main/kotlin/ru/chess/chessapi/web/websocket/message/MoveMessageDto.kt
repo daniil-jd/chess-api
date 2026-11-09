@@ -11,9 +11,9 @@ data class MoveMessageDto(
     val room: UUID,
     val sideOfMove: SideType,
     val move: String,
-    val moveForHistory: String,
     val moveId: UUID,
     // номер полухода в партии
     val ply: Int,
+    val moveForHistory: String? = null,
     val promotionType: PromotionType?
 ): MessageDto

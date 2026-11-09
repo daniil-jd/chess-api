@@ -67,6 +67,17 @@ class DistributorServiceTest {
     private lateinit var timeService: TimeService
 
     @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `findRoomById - returns room service result`(found: Boolean) {
+        val room = roomEntity(id = ROOM_ID).takeIf { found }
+        every { roomService.findRoomById(ROOM_ID) } returns room
+
+        service.findRoomById(ROOM_ID) shouldBe room
+
+        verify(exactly = 1) { roomService.findRoomById(ROOM_ID) }
+    }
+
+    @ParameterizedTest
     @EnumSource(SideType::class)
     fun `createUserRoomCandidate - resolves user and creates candidate with requested side`(side: SideType) {
         val request = requestForRoomMessage().copy(side = side)

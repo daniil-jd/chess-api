@@ -46,7 +46,7 @@ class RoomHistorySaveService(
                 roomService.save(roomEntity)
                 gameHistoryService.saveGameHistoryByRoom(userEntity, roomEntity, opponentType)
 
-                roomAcceptedMessagesStateService.clearForBothRoomUsers(roomEntity)
+                roomAcceptedMessagesStateService.clearByRoomId(roomEntity.id!!)
 
                 RoomHistorySaveResponse(backendUserId = backendUserId!!, roomId = roomEntity.id!!)
             } else {

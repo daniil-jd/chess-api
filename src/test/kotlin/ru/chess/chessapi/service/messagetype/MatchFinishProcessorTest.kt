@@ -66,12 +66,12 @@ class MatchFinishProcessorTest {
         verify(exactly = 1) {
             distributorService.updateRoomHistoryWhenMatchIsOver(ROOM_ID, winnerSide, finishType)
             wsSender.sendMessageIfSessionExist(recipient, message)
-            roomAcceptedMessagesStateService.clearForBothRoomUsers(room)
+            roomAcceptedMessagesStateService.clearByRoomId(ROOM_ID)
         }
         verifyOrder {
             distributorService.updateRoomHistoryWhenMatchIsOver(ROOM_ID, winnerSide, finishType)
             wsSender.sendMessageIfSessionExist(recipient, message)
-            roomAcceptedMessagesStateService.clearForBothRoomUsers(room)
+            roomAcceptedMessagesStateService.clearByRoomId(ROOM_ID)
         }
         confirmVerified(distributorService, wsSender, roomAcceptedMessagesStateService)
     }

@@ -55,9 +55,23 @@ class RoomHistorySaveServiceTest {
         verifyOrder {
             roomService.save(room)
             gameHistoryService.saveGameHistoryByRoom(user, room, GameType.ONLINE)
-            roomAcceptedMessagesStateService.clearForBothRoomUsers(room)
+            roomAcceptedMessagesStateService.clearByRoomId(room.id!!)
         }
+        verify(exactly = 1) { roomAcceptedMessagesStateService.clearByRoomId(ROOM_ID) }
         verify { userService wasNot Called }
+    }
+
+    @Test
+    fun `saveHistory - keeps accepted moves when game history save fails`() {
+        val room = roomEntity(id = ROOM_ID)
+        val failure = IllegalStateException("Cannot save game history")
+        every { roomService.findRoomById(ROOM_ID) } returns room
+        every { roomService.save(room) } returns room
+        every { gameHistoryService.saveGameHistoryByRoom(room.user1, room, GameType.ONLINE) } throws failure
+
+        shouldThrow<IllegalStateException> { service.saveHistory(roomHistorySaveRequest()) } shouldBe failure
+
+        verify { roomAcceptedMessagesStateService wasNot Called }
     }
 
     @Test

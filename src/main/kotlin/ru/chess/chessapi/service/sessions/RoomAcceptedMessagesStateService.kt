@@ -27,11 +27,26 @@ class RoomAcceptedMessagesStateService {
         return roomIdToMoveAcceptedMessages[rooId]?.toList() ?: emptyList()
     }
 
-    fun clearForBothRoomUsers(room: RoomEntity) {
-        clearByUserid(room.id!!)
+    fun getMessageByRoomIdAndMoveId(
+        rooId: UUID,
+        moveId: UUID,
+    ): MoveAcceptedMessage? {
+        val moveIdToMove: Map<UUID, MoveAcceptedMessage?>? = roomIdToMoveAcceptedMessages[rooId]?.associate {
+            it.moveId to it
+        }
+        return moveIdToMove?.get(moveId)
     }
 
-    fun clearByUserid(rooId: UUID) {
+    fun getLastMoveByRoom(
+        rooId: UUID
+    ): Int? {
+        return roomIdToMoveAcceptedMessages[rooId]
+            ?.toList()
+            ?.maxByOrNull { it.ply }
+            ?.ply
+    }
+
+    fun clearByRoomId(rooId: UUID) {
         roomIdToMoveAcceptedMessages.remove(rooId)
     }
 

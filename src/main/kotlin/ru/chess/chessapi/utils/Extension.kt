@@ -105,6 +105,22 @@ fun RoomEntity.findAnotherUser(sideOfMove: SideType): UserEntity {
     }
 }
 
+fun RoomEntity.findSide(userId: UUID): SideType? {
+    return when(userId) {
+        user1.id -> user1Side
+        user2.id -> user2Side
+        else -> null
+    }
+}
+
+fun RoomEntity.winnerSideForExpiredRoom(): SideType {
+    return when (lastMoveSide) {
+        user1Side -> user1Side
+        user2Side -> user2Side
+        else -> SideType.BLACK
+    }
+}
+
 fun RoomEntity.findAnotherUserWhenMatchFinished(winnerSide: SideType, finishType: FinishType): UserEntity {
     return when (finishType) {
         in setOf(FinishType.SURRENDER, FinishType.TIMEOUT, FinishType.DRAW) -> {

@@ -12,6 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.*
 import ru.chess.chessapi.TestData.Models.Entity.roomEntity
 import ru.chess.chessapi.TestData.Rooms.ROOM_ID
+import ru.chess.chessapi.TestData.Rooms.ROOM_ID_2
 import ru.chess.chessapi.TestData.Rooms.CURRENT_INSTANT
 import ru.chess.chessapi.TestData.Rooms.DEADLINE_AT
 import ru.chess.chessapi.TestData.Rooms.HISTORY
@@ -20,6 +21,7 @@ import ru.chess.chessapi.TestData.Users.USER_ID_2
 import ru.chess.chessapi.TestData.Users.USERNAME_1
 import ru.chess.chessapi.TestData.Users.USERNAME_2
 import ru.chess.chessapi.exception.ActiveRoomAlreadyExistException
+import ru.chess.chessapi.entity.RoomEntity
 import ru.chess.chessapi.repository.RoomRepository
 import ru.chess.chessapi.web.websocket.message.enums.*
 import java.util.Optional
@@ -32,6 +34,36 @@ class RoomServiceTest {
     private lateinit var roomRepository: RoomRepository
     @MockK(relaxUnitFun = true)
     private lateinit var timeService: TimeService
+
+    @Test
+    fun `updateStatusIfDeadlineAtExpired - saves timeouts and returns expired rooms`() {
+        val roomWithMove = roomEntity(id = ROOM_ID, lastMoveSide = SideType.WHITE)
+        val roomWithoutMoves = roomEntity(id = ROOM_ID_2)
+        val rooms = listOf(roomWithMove, roomWithoutMoves)
+        every { timeService.getNowInstant() } returns CURRENT_INSTANT
+        every { roomRepository.findByExpiredDeadline(CURRENT_INSTANT) } returns rooms
+        every { roomRepository.saveAll(rooms) } returns rooms
+
+        service.updateStatusIfDeadlineAtExpired() shouldBe rooms
+
+        roomWithMove.winnerSide shouldBe SideType.WHITE
+        roomWithoutMoves.winnerSide shouldBe SideType.BLACK
+        rooms.forEach {
+            it.winType shouldBe FinishType.TIMEOUT
+            it.roomStatus shouldBe RoomStatus.EXPIRED
+            it.updatedAt shouldBe CURRENT_INSTANT
+        }
+        verify(exactly = 1) { roomRepository.saveAll(rooms) }
+    }
+
+    @Test
+    fun `updateStatusIfDeadlineAtExpired - returns empty list when no room expired`() {
+        every { timeService.getNowInstant() } returns CURRENT_INSTANT
+        every { roomRepository.findByExpiredDeadline(CURRENT_INSTANT) } returns emptyList()
+        every { roomRepository.saveAll(emptyList<RoomEntity>()) } returns emptyList()
+
+        service.updateStatusIfDeadlineAtExpired() shouldBe emptyList()
+    }
 
     @Test
     fun `createRoomForOnlineMatch - saves active room with requested players and times`() {
@@ -85,15 +117,6 @@ class RoomServiceTest {
             source.user1, SideType.WHITE, USERNAME_1, source.user2, SideType.BLACK, USERNAME_2,
             GameType.BOT, HISTORY, winner, FinishType.DRAW
         ) shouldBe expected.copy(id = ROOM_ID)
-    }
-
-    @Test
-    fun `updateStatusIfDeadlineAtExpired - uses current instant`() {
-        every { timeService.getNowInstant() } returns CURRENT_INSTANT
-
-        service.updateStatusIfDeadlineAtExpired()
-
-        verify(exactly = 1) { roomRepository.markExpiredDeadline(CURRENT_INSTANT) }
     }
 
     @ParameterizedTest

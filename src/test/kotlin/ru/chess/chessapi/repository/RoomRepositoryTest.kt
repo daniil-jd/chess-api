@@ -34,6 +34,28 @@ class RoomRepositoryTest : BaseSpringTestFull() {
         )
     }
 
+    @Test
+    fun `findByExpiredDeadline - returns only active rooms at or past their deadline`() {
+        val user1 = userRepository.findByUsername(USERNAME_1)!!
+        val user2 = userRepository.findByUsername(USERNAME_2)!!
+        val room = roomEntity(user1 = user1, user2 = user2)
+        val atDeadline = roomRepository.save(room.copy(deadlineAt = CURRENT_INSTANT))
+        val overdue = roomRepository.save(room.copy(deadlineAt = CURRENT_INSTANT.minusSeconds(1)))
+        roomRepository.saveAll(
+            listOf(
+                room.copy(deadlineAt = CURRENT_INSTANT.plusSeconds(1)),
+                room.copy(deadlineAt = null),
+                room.copy(deadlineAt = CURRENT_INSTANT, roomStatus = RoomStatus.FINISHED),
+                room.copy(deadlineAt = CURRENT_INSTANT, roomStatus = RoomStatus.EXPIRED)
+            )
+        )
+
+        val expired = roomRepository.findByExpiredDeadline(CURRENT_INSTANT)
+
+        expired.map { it.id } shouldContainExactlyInAnyOrder listOf(atDeadline.id, overdue.id)
+        expired.all { it.roomStatus == RoomStatus.ACTIVE } shouldBe true
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = [false, true])
     fun `findAllByUser1AndUser2ForUpdate - both player orders`(reverse: Boolean) {
@@ -274,33 +296,5 @@ class RoomRepositoryTest : BaseSpringTestFull() {
     @Test
     fun `countByUser - unknown user`() {
         roomRepository.countByUser(UUID.randomUUID()) shouldBe 0L
-    }
-
-    @Test
-    fun `markExpiredDeadline - updates only active rooms with reached deadline`() {
-        val user1 = userRepository.findByUsername(USERNAME_1)!!
-        val user2 = userRepository.findByUsername(USERNAME_2)!!
-        val activeRoom = roomRepository.save(roomEntity(user1, user2, deadlineAt = CURRENT_INSTANT.minusSeconds(1)))
-        val reversedActiveRoom = roomRepository.save(roomEntity(user2, user1, deadlineAt = CURRENT_INSTANT))
-        roomRepository.saveAll(listOf(
-            roomEntity(user1, user2, roomStatus = RoomStatus.FINISHED, deadlineAt = CURRENT_INSTANT.minusSeconds(1)),
-            roomEntity(user2, user1, roomStatus = RoomStatus.EXPIRED, deadlineAt = CURRENT_INSTANT.minusSeconds(1)),
-            roomEntity(user1, user2),
-            roomEntity(user1, user2, deadlineAt = null),
-        ))
-        val before = roomRepository.findAll().associateBy { it.id }
-
-        roomRepository.markExpiredDeadline(CURRENT_INSTANT)
-
-        val after = roomRepository.findAll().associateBy { it.id }
-        after.keys shouldBe before.keys
-        before.forEach { (id, room) ->
-            val expected = if (id == activeRoom.id || id == reversedActiveRoom.id) {
-                room.copy(roomStatus = RoomStatus.EXPIRED, updatedAt = CURRENT_INSTANT)
-            } else {
-                room
-            }
-            after[id] shouldBe expected
-        }
     }
 }

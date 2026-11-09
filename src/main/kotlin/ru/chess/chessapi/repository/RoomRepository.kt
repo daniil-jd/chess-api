@@ -81,17 +81,12 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
     )
     fun countByUser(userId: UUID): Long
 
-    @Transactional
-    @Modifying
     @Query(
         nativeQuery = true,
         value = """
-            update public.chess_rooms_2
-            set room_status = 'EXPIRED', 
-                updated_at = :currentInstant
-            where room_status = 'ACTIVE' 
-                and deadline_at <= :currentInstant;
+            select * from public.chess_rooms_2 re
+            where re.room_status = 'ACTIVE' and re.deadline_at <= :currentInstant;
         """
     )
-    fun markExpiredDeadline(currentInstant: Instant)
+    fun findByExpiredDeadline(currentInstant: Instant): List<RoomEntity>
 }

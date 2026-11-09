@@ -34,6 +34,6 @@ class MatchFinishProcessor(
         )
         wsSender.sendMessageIfSessionExist(userToSend.id!!, messageToAnotherUser)
 
-        roomAcceptedMessagesStateService.clearForBothRoomUsers(room)
+        roomAcceptedMessagesStateService.clearByRoomId(room.id!!)
     }
 }
