@@ -10,6 +10,7 @@ import ru.chess.chessapi.exception.ActiveRoomDoesNotExistByUserIdException
 import ru.chess.chessapi.exception.ActiveRoomDoesNotExistException
 import ru.chess.chessapi.exception.UserDoesNotExistException
 import ru.chess.chessapi.model.CandidatePair
+import ru.chess.chessapi.repository.MatchmakingLockRepository
 import ru.chess.chessapi.web.dto.request.AuthBySignatureRequest
 import ru.chess.chessapi.web.dto.request.UserChangeNameRequest
 import ru.chess.chessapi.web.dto.response.AuthCodeResponse
@@ -28,12 +29,14 @@ class DistributorService(
     private val roomService: RoomService,
     private val authCodeService: AuthCodeService,
     private val timeService: TimeService,
+    private val matchmakingLockRepository: MatchmakingLockRepository,
 ) {
 
     private val logger = KotlinLogging.logger {}
 
     @Transactional
     fun createUserRoomCandidate(requestMessageDto: RequestForRoomMessageDto): UserRoomCandidateEntity {
+        lockMatchmaking()
         with(requestMessageDto) {
             val user = userService.searchOrCreateUserBySignatureAndId(
                 signature = signature, backendUserId = backendUserId, username = username
@@ -45,6 +48,7 @@ class DistributorService(
 
     @Transactional
     fun searchCandidatesAndCreateRooms(): List<RoomEntity> {
+        lockMatchmaking()
         val candidates = userRoomCandidateService.findActiveUserRoomCandidates()
         if (candidates.size >= 2) {
             val pairsToCreate = mutableSetOf<CandidatePair<UserRoomCandidateEntity, UserRoomCandidateEntity>>()
@@ -177,12 +181,20 @@ class DistributorService(
 
     @Transactional
     fun cancelRoomCandidate(userId: UUID) {
+        lockMatchmaking()
         val user = userService.findById(userId)
         if (user != null) {
             userRoomCandidateService.deleteByUser(user)
             logger.info { "UserRoomCandidate deleted by userId: $userId" }
         } else {
             logger.warn { "Nothing found by userId: $userId" }
+        }
+    }
+
+    private fun lockMatchmaking() {
+        // Keep the queue locked through the outer WS commit so other requests see committed candidates.
+        checkNotNull(matchmakingLockRepository.lockForMatchmaking()) {
+            "Missing matchmaking_lock row with id=1"
         }
     }
 

@@ -12,5 +12,6 @@
     <include file="V1.7__add_points_to_game_history_table.xml" relativeToChangelogFile="true"/>
     <include file="V1.8__alter_rating_in_chess_users_2_table.xml" relativeToChangelogFile="true"/>
     <include file="V1.9__add_updated_at_room_status_deadline_at_fields_to_rooms2_table.xml" relativeToChangelogFile="true"/>
+    <include file="V1.10__create_matchmaking_lock_table.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

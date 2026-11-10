@@ -10,6 +10,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.verify
 import io.mockk.verifyOrder
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
@@ -40,8 +41,10 @@ import ru.chess.chessapi.TestData.Users.USERNAME_2
 import ru.chess.chessapi.TestData.Users.USERNAME_3
 import ru.chess.chessapi.TestData.Users.USERNAME_4
 import ru.chess.chessapi.TestData.Users.USERNAME_5
+import ru.chess.chessapi.entity.MatchmakingLockEntity
 import ru.chess.chessapi.exception.ActiveRoomDoesNotExistByUserIdException
 import ru.chess.chessapi.exception.UserDoesNotExistException
+import ru.chess.chessapi.repository.MatchmakingLockRepository
 import ru.chess.chessapi.web.dto.request.AuthBySignatureRequest
 import ru.chess.chessapi.web.dto.request.UserChangeNameRequest
 import ru.chess.chessapi.web.dto.response.AuthCodeResponse
@@ -65,6 +68,13 @@ class DistributorServiceTest {
     private lateinit var authCodeService: AuthCodeService
     @MockK(relaxUnitFun = true)
     private lateinit var timeService: TimeService
+    @MockK
+    private lateinit var matchmakingLockRepository: MatchmakingLockRepository
+
+    @BeforeEach
+    fun prepareMatchmakingLock() {
+        every { matchmakingLockRepository.lockForMatchmaking() } returns MatchmakingLockEntity()
+    }
 
     @ParameterizedTest
     @ValueSource(booleans = [false, true])
@@ -92,6 +102,11 @@ class DistributorServiceTest {
             userService.searchOrCreateUserBySignatureAndId(SIGNATURE_1, USER_ID_1, USERNAME_1)
             userRoomCandidateService.createUserRoomCandidate(user, side)
         }
+        verifyOrder {
+            matchmakingLockRepository.lockForMatchmaking()
+            userService.searchOrCreateUserBySignatureAndId(SIGNATURE_1, USER_ID_1, USERNAME_1)
+            userRoomCandidateService.createUserRoomCandidate(user, side)
+        }
     }
 
     @ParameterizedTest
@@ -103,6 +118,10 @@ class DistributorServiceTest {
         service.searchCandidatesAndCreateRooms() shouldBe emptyList()
 
         verify(exactly = 1) { userRoomCandidateService.findActiveUserRoomCandidates() }
+        verifyOrder {
+            matchmakingLockRepository.lockForMatchmaking()
+            userRoomCandidateService.findActiveUserRoomCandidates()
+        }
         confirmVerified(userRoomCandidateService)
         verify { roomService wasNot Called }
     }
@@ -232,6 +251,11 @@ class DistributorServiceTest {
         service.cancelRoomCandidate(USER_ID_1)
 
         verify(exactly = 1) { userRoomCandidateService.deleteByUser(user) }
+        verifyOrder {
+            matchmakingLockRepository.lockForMatchmaking()
+            userService.findById(USER_ID_1)
+            userRoomCandidateService.deleteByUser(user)
+        }
     }
 
     @Test
@@ -241,6 +265,22 @@ class DistributorServiceTest {
         service.cancelRoomCandidate(USER_ID_1)
 
         verify { userRoomCandidateService wasNot Called }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["create", "search", "cancel"])
+    fun `missing matchmaking lock prevents queue operations`(operation: String) {
+        every { matchmakingLockRepository.lockForMatchmaking() } returns null
+
+        shouldThrow<IllegalStateException> {
+            when (operation) {
+                "create" -> service.createUserRoomCandidate(requestForRoomMessage())
+                "search" -> service.searchCandidatesAndCreateRooms()
+                "cancel" -> service.cancelRoomCandidate(USER_ID_1)
+            }
+        }.message shouldBe "Missing matchmaking_lock row with id=1"
+
+        verify { listOf(userService, userRoomCandidateService, roomService) wasNot Called }
     }
 
     @Test

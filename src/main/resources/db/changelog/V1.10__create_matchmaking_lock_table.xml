@@ -1,0 +1,16 @@
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="create_matchmaking_lock_table" author="codex">
+        <createTable tableName="matchmaking_lock">
+            <column name="id" type="int">
+                <constraints primaryKey="true" nullable="false" primaryKeyName="matchmaking_lock_pk"/>
+            </column>
+        </createTable>
+        <insert tableName="matchmaking_lock">
+            <column name="id" valueNumeric="1"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>
