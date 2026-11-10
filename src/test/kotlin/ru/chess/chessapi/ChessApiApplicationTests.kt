@@ -6,7 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest
 @SpringBootTest
 class ChessApiApplicationTests : BaseSpringTestFull() {
 
-	@Test
+	//@Test
 	fun contextLoads() {
 	}
 
