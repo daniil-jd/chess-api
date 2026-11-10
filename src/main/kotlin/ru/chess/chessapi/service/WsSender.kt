@@ -19,8 +19,7 @@ import java.util.*
 @Service
 class WsSender(
     private val mapper: ObjectMapper,
-    private val userSessionStateService: UserSessionStateService,
-    private val timeService: TimeService
+    private val userSessionStateService: UserSessionStateService
 ) {
 
     private val logger = KotlinLogging.logger {}
@@ -74,6 +73,7 @@ class WsSender(
         val user1Side = room.user1Side
         val user2 = room.user2
         val user2Side = room.user2Side
+        val matchServerTimeMs = room.createdAt.toEpochMilli()
 
         val session1 = userSessionStateService.getByUserId(user1.id!!)
         val session2 = userSessionStateService.getByUserId(user2.id!!)
@@ -84,7 +84,7 @@ class WsSender(
             opponentName = user2.username,
             playerSide = user1Side,
             sessionId = session1!!.id,
-            matchServerTimeMs = room.updatedAt ?: timeService.getNowInstant()
+            matchServerTimeMs = matchServerTimeMs
         )
         sendMessage(user1.id!!, message1, session1)
 
@@ -94,7 +94,7 @@ class WsSender(
             opponentName = user1.username,
             playerSide = user2Side,
             sessionId = session2!!.id,
-            matchServerTimeMs = room.updatedAt ?: timeService.getNowInstant()
+            matchServerTimeMs = matchServerTimeMs
         )
         sendMessage(user2.id!!, message2, session2)
     }

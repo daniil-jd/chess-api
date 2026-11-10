@@ -2,7 +2,6 @@ package ru.chess.chessapi.web.websocket.message
 
 import ru.chess.chessapi.web.websocket.message.enums.MessageType
 import ru.chess.chessapi.web.websocket.message.enums.SideType
-import java.time.Instant
 import java.util.UUID
 
 data class RoomFoundMessageDto(
@@ -12,5 +11,5 @@ data class RoomFoundMessageDto(
     val opponentName: String,
     val playerSide: SideType,
     val sessionId: String,
-    val matchServerTimeMs: Instant
+    val matchServerTimeMs: Long
 ): MessageDto

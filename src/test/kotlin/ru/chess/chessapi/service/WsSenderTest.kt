@@ -50,8 +50,6 @@ class WsSenderTest {
     @MockK(relaxUnitFun = true)
     private lateinit var userSessionStateService: UserSessionStateService
     @MockK(relaxUnitFun = true)
-    private lateinit var timeService: TimeService
-    @MockK(relaxUnitFun = true)
     private lateinit var session: WebSocketSession
     @MockK(relaxUnitFun = true)
     private lateinit var otherSession: WebSocketSession
@@ -74,7 +72,7 @@ class WsSenderTest {
             mapper.writeValueAsString(message)
             session.sendMessage(match<TextMessage> { it.payload == SERIALIZED_MESSAGE })
         }
-        verify { listOf(userSessionStateService, timeService, otherSession) wasNot Called }
+        verify { listOf(userSessionStateService, otherSession) wasNot Called }
         confirmVerified(mapper)
     }
 
@@ -171,21 +169,20 @@ class WsSenderTest {
             mapper.writeValueAsString(expected)
             session.sendMessage(any())
         }
-        verify { timeService wasNot Called }
         confirmVerified(userSessionStateService, mapper)
     }
 
     @ParameterizedTest
     @CsvSource("WHITE, true", "WHITE, false", "BLACK, true", "BLACK, false")
-    fun `sendRoomCreatedMessage - sends personal room details to each player`(
+    fun `sendRoomCreatedMessage - sends the same creation time to both players regardless of updatedAt`(
         user1Side: SideType, hasUpdatedAt: Boolean
     ) {
         val user2Side = if (user1Side == SideType.WHITE) SideType.BLACK else SideType.WHITE
         val room = roomEntity(
             id = ROOM_ID, user1Side = user1Side, user2Side = user2Side,
-            updatedAt = if (hasUpdatedAt) CREATED_AT else null
+            updatedAt = if (hasUpdatedAt) CURRENT_INSTANT else null
         )
-        val expectedTime = if (hasUpdatedAt) CREATED_AT else CURRENT_INSTANT
+        val expectedTime = CREATED_AT.toEpochMilli()
         val first = RoomFoundMessageDto(
             backendUserId = USER_ID_1, room = ROOM_ID, opponentName = USERNAME_2,
             playerSide = user1Side, sessionId = SESSION_ID, matchServerTimeMs = expectedTime
@@ -196,7 +193,6 @@ class WsSenderTest {
         )
         every { userSessionStateService.getByUserId(USER_ID_1) } returns session
         every { userSessionStateService.getByUserId(USER_ID_2) } returns otherSession
-        if (!hasUpdatedAt) every { timeService.getNowInstant() } returns CURRENT_INSTANT
         every { mapper.writeValueAsString(first) } returns SERIALIZED_ROOM_MESSAGE_1
         every { mapper.writeValueAsString(second) } returns SERIALIZED_ROOM_MESSAGE_2
 
@@ -210,8 +206,6 @@ class WsSenderTest {
             session.sendMessage(match<TextMessage> { it.payload == SERIALIZED_ROOM_MESSAGE_1 })
             otherSession.sendMessage(match<TextMessage> { it.payload == SERIALIZED_ROOM_MESSAGE_2 })
         }
-        if (hasUpdatedAt) verify { timeService wasNot Called }
-        else verify(exactly = 2) { timeService.getNowInstant() }
         confirmVerified(mapper, userSessionStateService)
     }
 
@@ -220,11 +214,11 @@ class WsSenderTest {
         val room = roomEntity(id = ROOM_ID, updatedAt = CURRENT_INSTANT)
         val first = RoomFoundMessageDto(
             backendUserId = USER_ID_1, room = ROOM_ID, opponentName = USERNAME_2,
-            playerSide = SideType.WHITE, sessionId = SESSION_ID, matchServerTimeMs = CURRENT_INSTANT
+            playerSide = SideType.WHITE, sessionId = SESSION_ID, matchServerTimeMs = CREATED_AT.toEpochMilli()
         )
         val second = RoomFoundMessageDto(
             backendUserId = USER_ID_2, room = ROOM_ID, opponentName = USERNAME_1,
-            playerSide = SideType.BLACK, sessionId = SESSION_ID_2, matchServerTimeMs = CURRENT_INSTANT
+            playerSide = SideType.BLACK, sessionId = SESSION_ID_2, matchServerTimeMs = CREATED_AT.toEpochMilli()
         )
         every { userSessionStateService.getByUserId(USER_ID_1) } returns session
         every { userSessionStateService.getByUserId(USER_ID_2) } returns otherSession

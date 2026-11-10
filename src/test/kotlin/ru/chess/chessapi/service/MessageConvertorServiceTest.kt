@@ -2,6 +2,9 @@ package ru.chess.chessapi.service
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -32,6 +35,19 @@ class MessageConvertorServiceTest {
     private lateinit var service: MessageConvertorService
     @MockK(relaxUnitFun = true)
     private lateinit var mapper: ObjectMapper
+
+    @Test
+    fun `room found - serializes match start as numeric epoch milliseconds`() {
+        val realMapper = jacksonObjectMapper().registerModule(JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        val message = roomFoundMessage()
+        val json = realMapper.writeValueAsString(message)
+        val timestamp = realMapper.readTree(json).get("matchServerTimeMs")
+
+        timestamp.isIntegralNumber shouldBe true
+        timestamp.longValue() shouldBe CURRENT_INSTANT.toEpochMilli()
+        MessageConvertorService(realMapper).convertMessageDtoFromTextMessage(TextMessage(json)) shouldBe message
+    }
 
     @ParameterizedTest
     @MethodSource("messages")
@@ -79,7 +95,7 @@ class MessageConvertorServiceTest {
     companion object {
         private fun roomFoundMessage() = RoomFoundMessageDto(
             backendUserId = USER_ID_1, room = ROOM_ID, opponentName = USERNAME_2,
-            playerSide = SideType.WHITE, sessionId = SESSION_ID, matchServerTimeMs = CURRENT_INSTANT
+            playerSide = SideType.WHITE, sessionId = SESSION_ID, matchServerTimeMs = CURRENT_INSTANT.toEpochMilli()
         )
 
         private fun supportedMessages(): List<MessageDto> = listOf(
