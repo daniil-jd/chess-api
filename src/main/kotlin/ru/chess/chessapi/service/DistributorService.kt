@@ -28,12 +28,14 @@ class DistributorService(
     private val roomService: RoomService,
     private val authCodeService: AuthCodeService,
     private val timeService: TimeService,
+    private val matchmakingLockService: MatchmakingLockService,
 ) {
 
     private val logger = KotlinLogging.logger {}
 
     @Transactional
     fun createUserRoomCandidate(requestMessageDto: RequestForRoomMessageDto): UserRoomCandidateEntity {
+        matchmakingLockService.lockMatchmaking()
         with(requestMessageDto) {
             val user = userService.searchOrCreateUserBySignatureAndId(
                 signature = signature, backendUserId = backendUserId, username = username
@@ -45,6 +47,7 @@ class DistributorService(
 
     @Transactional
     fun searchCandidatesAndCreateRooms(): List<RoomEntity> {
+        matchmakingLockService.lockMatchmaking()
         val candidates = userRoomCandidateService.findActiveUserRoomCandidates()
         if (candidates.size >= 2) {
             val pairsToCreate = mutableSetOf<CandidatePair<UserRoomCandidateEntity, UserRoomCandidateEntity>>()
@@ -177,6 +180,7 @@ class DistributorService(
 
     @Transactional
     fun cancelRoomCandidate(userId: UUID) {
+        matchmakingLockService.lockMatchmaking()
         val user = userService.findById(userId)
         if (user != null) {
             userRoomCandidateService.deleteByUser(user)

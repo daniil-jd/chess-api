@@ -65,6 +65,8 @@ class DistributorServiceTest {
     private lateinit var authCodeService: AuthCodeService
     @MockK(relaxUnitFun = true)
     private lateinit var timeService: TimeService
+    @MockK(relaxUnitFun = true)
+    private lateinit var matchmakingLockService: MatchmakingLockService
 
     @ParameterizedTest
     @ValueSource(booleans = [false, true])
@@ -88,7 +90,8 @@ class DistributorServiceTest {
 
         service.createUserRoomCandidate(request) shouldBe expected
 
-        verify(exactly = 1) {
+        verifyOrder {
+            matchmakingLockService.lockMatchmaking()
             userService.searchOrCreateUserBySignatureAndId(SIGNATURE_1, USER_ID_1, USERNAME_1)
             userRoomCandidateService.createUserRoomCandidate(user, side)
         }
@@ -102,7 +105,10 @@ class DistributorServiceTest {
 
         service.searchCandidatesAndCreateRooms() shouldBe emptyList()
 
-        verify(exactly = 1) { userRoomCandidateService.findActiveUserRoomCandidates() }
+        verifyOrder {
+            matchmakingLockService.lockMatchmaking()
+            userRoomCandidateService.findActiveUserRoomCandidates()
+        }
         confirmVerified(userRoomCandidateService)
         verify { roomService wasNot Called }
     }
@@ -231,7 +237,11 @@ class DistributorServiceTest {
 
         service.cancelRoomCandidate(USER_ID_1)
 
-        verify(exactly = 1) { userRoomCandidateService.deleteByUser(user) }
+        verifyOrder {
+            matchmakingLockService.lockMatchmaking()
+            userService.findById(USER_ID_1)
+            userRoomCandidateService.deleteByUser(user)
+        }
     }
 
     @Test
