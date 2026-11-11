@@ -12,5 +12,5 @@ data class RoomFoundMessageDto(
     val opponentName: String,
     val playerSide: SideType,
     val sessionId: String,
-    val matchServerTimeMs: Instant
+    val matchServerTimeMs: Long
 ): MessageDto

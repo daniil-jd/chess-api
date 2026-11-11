@@ -2,6 +2,7 @@ package ru.chess.chessapi.service
 
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import ru.chess.chessapi.entity.GameHistory
 import ru.chess.chessapi.entity.UserEntity
 import ru.chess.chessapi.exception.MatchIsNotOverException
@@ -12,7 +13,6 @@ import ru.chess.chessapi.utils.toMatchHistory
 import ru.chess.chessapi.web.dto.response.HistoryRoomResponse
 import ru.chess.chessapi.web.dto.response.RoomHistorySearchResponse
 import ru.chess.chessapi.web.websocket.message.enums.GameType
-import ru.chess.chessapi.web.websocket.message.enums.UserGameStatus
 import java.util.*
 
 @Service
@@ -24,6 +24,7 @@ class RoomHistorySearchService(
 
     private val logger = KotlinLogging.logger {}
 
+    @Transactional(readOnly = true)
     fun getLatest30GamesEachType(backendUserId: String?, signature: String?): RoomHistorySearchResponse {
         return when {
             // backendUserId is not null, not blank

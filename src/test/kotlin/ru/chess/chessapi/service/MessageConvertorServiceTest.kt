@@ -79,7 +79,7 @@ class MessageConvertorServiceTest {
     companion object {
         private fun roomFoundMessage() = RoomFoundMessageDto(
             backendUserId = USER_ID_1, room = ROOM_ID, opponentName = USERNAME_2,
-            playerSide = SideType.WHITE, sessionId = SESSION_ID, matchServerTimeMs = CURRENT_INSTANT
+            playerSide = SideType.WHITE, sessionId = SESSION_ID, matchServerTimeMs = CURRENT_INSTANT.toEpochMilli()
         )
 
         private fun supportedMessages(): List<MessageDto> = listOf(
