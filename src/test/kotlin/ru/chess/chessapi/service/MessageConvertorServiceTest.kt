@@ -49,6 +49,27 @@ class MessageConvertorServiceTest {
         MessageConvertorService(realMapper).convertMessageDtoFromTextMessage(TextMessage(json)) shouldBe message
     }
 
+    @Test
+    fun `draw with null winner is parsed by the real mapper`() {
+        val realMapper = jacksonObjectMapper()
+        val json = """{"messageType":"MATCH_FINISHED","room":"$ROOM_ID","winnerSide":null,"finishType":"DRAW"}"""
+
+        MessageConvertorService(realMapper).convertMessageDtoFromTextMessage(TextMessage(json)) shouldBe
+            matchFinishedMessage(winnerSide = null, finishType = FinishType.DRAW)
+        realMapper.readTree(realMapper.writeValueAsString(matchFinishedMessage(null, FinishType.DRAW)))
+            .path("winnerSide").isNull shouldBe true
+    }
+
+    @Test
+    fun `server timeout event is not a client command`() {
+        val realMapper = jacksonObjectMapper()
+        val event = matchFinishedMessage(finishType = FinishType.TIMEOUT).copy(messageType = MessageType.MATCH_FINISHED_WS)
+
+        MessageConvertorService(realMapper).convertMessageDtoFromTextMessage(
+            TextMessage(realMapper.writeValueAsString(event))
+        ) shouldBe null
+    }
+
     @ParameterizedTest
     @MethodSource("messages")
     fun `convertMessageDtoFromTextMessage - finds supported type after failed conversions`(expected: MessageDto) {

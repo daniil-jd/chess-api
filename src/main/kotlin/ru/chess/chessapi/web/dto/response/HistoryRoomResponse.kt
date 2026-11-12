@@ -10,5 +10,5 @@ data class HistoryRoomResponse(
     val playerBlackName: String,
     val history: String,
     val finishType: FinishType,
-    val winnerSide: SideType
+    val winnerSide: SideType?
 )

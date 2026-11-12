@@ -85,7 +85,8 @@ interface RoomRepository : JpaRepository<RoomEntity, UUID> {
         nativeQuery = true,
         value = """
             select * from public.chess_rooms_2 re
-            where re.room_status = 'ACTIVE' and re.deadline_at <= :currentInstant;
+            where re.room_status = 'ACTIVE' and re.deadline_at <= :currentInstant
+            for update
         """
     )
     fun findByExpiredDeadline(currentInstant: Instant): List<RoomEntity>

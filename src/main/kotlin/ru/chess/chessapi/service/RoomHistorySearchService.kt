@@ -64,7 +64,7 @@ class RoomHistorySearchService(
                 playerBlackName = user2Name,
                 history = history!!,
                 finishType = winType!!,
-                winnerSide = winnerSide!!
+                winnerSide = winnerSide
             )
         }
     }

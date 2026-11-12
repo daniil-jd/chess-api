@@ -6,6 +6,7 @@ enum class MessageType {
     CHESS_MOVE,
     CHESS_MOVE_ACCEPTED,
     MATCH_FINISHED,
+    MATCH_FINISHED_WS,
     REQUEST_FOR_ROOM_CANCEL,
     WS_RETRY,
     NEW_WS,

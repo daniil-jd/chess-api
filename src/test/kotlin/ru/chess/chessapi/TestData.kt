@@ -179,7 +179,7 @@ object TestData {
             )
 
             fun matchFinishedMessage(
-                winnerSide: SideType = SideType.WHITE,
+                winnerSide: SideType? = SideType.WHITE,
                 finishType: FinishType = FinishType.CHECKMATE
             ) = MatchFinishedMessageDto(MessageType.MATCH_FINISHED, Rooms.ROOM_ID, winnerSide, finishType)
 

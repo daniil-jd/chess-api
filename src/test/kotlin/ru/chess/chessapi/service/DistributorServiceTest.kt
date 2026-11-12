@@ -331,9 +331,9 @@ class DistributorServiceTest {
         "TIMEOUT, WHITE", "TIMEOUT, BLACK", "DRAW, WHITE", "DRAW, BLACK"
     )
     fun `updateRoomHistoryWhenMatchIsOver - appends result and finishes room`(finish: FinishType, side: SideType) {
-        val room = roomEntity(id = ROOM_ID, history = HISTORY)
+        val room = roomEntity(id = ROOM_ID, history = HISTORY, lastMoveSide = SideType.BLACK)
+        val deadline = room.deadlineAt
         every { roomService.findActiveRoomForUpdate(ROOM_ID) } returns room
-        every { timeService.getRoomDeadLineInstant() } returns DEADLINE_AT
         every { timeService.getNowInstant() } returns CURRENT_INSTANT
         every { roomService.save(room) } answers { firstArg() }
 
@@ -341,12 +341,43 @@ class DistributorServiceTest {
 
         actual.history shouldBe "$HISTORY $finish"
         actual.winnerSide shouldBe side
-        actual.lastMoveSide shouldBe side
+        actual.lastMoveSide shouldBe SideType.BLACK
         actual.winType shouldBe finish
         actual.roomStatus shouldBe RoomStatus.FINISHED
         actual.updatedAt shouldBe CURRENT_INSTANT
-        actual.deadlineAt shouldBe DEADLINE_AT
+        actual.deadlineAt shouldBe deadline
+        verify(exactly = 0) { timeService.getRoomDeadLineInstant() }
         verify(exactly = 1) { roomService.save(room) }
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @EnumSource(value = SideType::class, names = ["WHITE", "BLACK"])
+    fun `draw without winner preserves last move and deadline`(lastMove: SideType?) {
+        val room = roomEntity(id = ROOM_ID, history = HISTORY, lastMoveSide = lastMove)
+        val deadline = room.deadlineAt
+        every { roomService.findActiveRoomForUpdate(ROOM_ID) } returns room
+        every { timeService.getNowInstant() } returns CURRENT_INSTANT
+        every { roomService.save(room) } answers { firstArg() }
+
+        val result = service.updateRoomHistoryWhenMatchIsOver(ROOM_ID, null, FinishType.DRAW)
+
+        result.winnerSide shouldBe null
+        result.winType shouldBe FinishType.DRAW
+        result.roomStatus shouldBe RoomStatus.FINISHED
+        result.history shouldBe "$HISTORY DRAW"
+        result.lastMoveSide shouldBe lastMove
+        result.deadlineAt shouldBe deadline
+        result.updatedAt shouldBe CURRENT_INSTANT
+        verify(exactly = 1) { roomService.save(room) }
+        verify(exactly = 0) { timeService.getRoomDeadLineInstant() }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = FinishType::class, names = ["CHECKMATE", "SURRENDER", "TIMEOUT"])
+    fun `decisive result without winner is rejected before updating room`(finish: FinishType) {
+        shouldThrow<IllegalArgumentException> { service.updateRoomHistoryWhenMatchIsOver(ROOM_ID, null, finish) }
+        verify { listOf(roomService, timeService) wasNot Called }
     }
 
     @Test

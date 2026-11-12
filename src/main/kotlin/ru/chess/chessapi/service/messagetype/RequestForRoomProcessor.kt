@@ -27,6 +27,7 @@ class RequestForRoomProcessor(
             userRoomCandidate.user.id!!,
             emptyList(),
             null,
+            null,
             session
         )
 

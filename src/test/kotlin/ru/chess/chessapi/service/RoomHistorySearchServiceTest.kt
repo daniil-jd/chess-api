@@ -134,6 +134,16 @@ class RoomHistorySearchServiceTest {
     }
 
     @Test
+    fun `getHistoryRoomById - draw has no winner`() {
+        every { roomService.findRoomById(ROOM_ID) } returns roomEntity(
+            id = ROOM_ID, history = "$HISTORY DRAW", winnerSide = null, winType = FinishType.DRAW
+        )
+
+        service.getHistoryRoomById(ROOM_ID) shouldBe
+            HistoryRoomResponse(ROOM_ID, USERNAME_1, USERNAME_2, "$HISTORY DRAW", FinishType.DRAW, null)
+    }
+
+    @Test
     fun `getHistoryRoomById - missing room`() {
         every { roomService.findRoomById(ROOM_ID) } returns null
 

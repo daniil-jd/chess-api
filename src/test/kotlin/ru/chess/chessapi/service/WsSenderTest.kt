@@ -2,6 +2,7 @@ package ru.chess.chessapi.service
 
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.Called
@@ -152,12 +153,13 @@ class WsSenderTest {
             messageType = MessageType.NEW_WS,
             backendUserId = USER_ID_1,
             sessionId = SESSION_ID,
+            room = ROOM_ID.takeIf { hasCreatedAt },
             turns = moves,
             matchServerTimeMs = createdAt?.toEpochMilli()
         )
         every { mapper.writeValueAsString(expected) } returns SERIALIZED_SESSION_MESSAGE
 
-        wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, moves, createdAt, session)
+        wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, moves, createdAt, expected.room, session)
 
         verify(exactly = 1) {
             userSessionStateService.add(USER_ID_1, session)
@@ -170,6 +172,28 @@ class WsSenderTest {
             session.sendMessage(any())
         }
         confirmVerified(userSessionStateService, mapper)
+    }
+
+    @ParameterizedTest
+    @CsvSource("0, false", "0, true", "2, true")
+    fun `new session JSON includes room independently of history`(moveCount: Int, hasRoom: Boolean) {
+        val realMapper = jacksonObjectMapper()
+        val sender = WsSender(realMapper, userSessionStateService)
+        val moves = List(moveCount) { moveAcceptedMessage().copy(ply = it + 1) }
+        val roomId = ROOM_ID.takeIf { hasRoom }
+
+        sender.saveSessionAndSendNewSessionMessage(USER_ID_1, moves, CREATED_AT.takeIf { hasRoom }, roomId, session)
+
+        verify(exactly = 1) {
+            session.sendMessage(match<TextMessage> {
+                val json = realMapper.readTree(it.payload)
+                json.path("messageType").asText() == "NEW_WS"
+                    && (if (hasRoom) json.path("room").asText() == ROOM_ID.toString() else json.path("room").isNull)
+                    && json.path("turns").size() == moveCount
+                    && (if (hasRoom) json.path("matchServerTimeMs").longValue() == CREATED_AT.toEpochMilli()
+                        else json.path("matchServerTimeMs").isNull)
+            })
+        }
     }
 
     @ParameterizedTest

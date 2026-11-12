@@ -23,6 +23,7 @@ import ru.chess.chessapi.service.RoomService
 import ru.chess.chessapi.service.WsSender
 import ru.chess.chessapi.service.sessions.RoomAcceptedMessagesStateService
 import ru.chess.chessapi.service.sessions.UserSessionStateService
+import ru.chess.chessapi.web.websocket.message.enums.MessageType
 import ru.chess.chessapi.web.websocket.message.enums.FinishType
 import ru.chess.chessapi.web.websocket.message.enums.SideType
 
@@ -55,6 +56,7 @@ class RoomDeadlineSchedulerTest {
     ) {
         val room = roomEntity(id = ROOM_ID, lastMoveSide = lastMove)
         val expected = matchFinishedMessage(winnerSide = winner, finishType = FinishType.TIMEOUT)
+            .copy(messageType = MessageType.MATCH_FINISHED_WS)
         every { roomService.updateStatusIfDeadlineAtExpired() } returns listOf(room)
         every { userSessionStateService.getByUserId(USER_ID_1) } returns firstSession.takeIf { firstConnected }
         every { userSessionStateService.getByUserId(USER_ID_2) } returns secondSession.takeIf { secondConnected }

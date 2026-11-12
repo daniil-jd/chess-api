@@ -62,14 +62,14 @@ class WsRetryProcessorTest {
             userSessionStateService.getByUserId(USER_ID_1)
             distributorService.findActiveRoomByUserId(USER_ID_1)
             roomAcceptedMessagesStateService.getMessagesByRoomId(ROOM_ID)
-            wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, moves, room.createdAt, session)
+            wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, moves, room.createdAt, ROOM_ID, session)
         }
         if (hasOldSession) {
             verify(exactly = 1) { sessionsAggregatorService.removeOldSessionFromStates(OLD_SESSION_ID) }
             verifyOrder {
                 sessionsAggregatorService.removeOldSessionFromStates(OLD_SESSION_ID)
                 distributorService.findActiveRoomByUserId(USER_ID_1)
-                wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, moves, room.createdAt, session)
+                wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, moves, room.createdAt, ROOM_ID, session)
             }
         } else {
             verify { sessionsAggregatorService wasNot Called }
@@ -88,7 +88,7 @@ class WsRetryProcessorTest {
 
         processor.process(requestForWsRetryMessage(), session)
 
-        verify(exactly = 1) { wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, emptyList(), room.createdAt, session) }
+        verify(exactly = 1) { wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, emptyList(), room.createdAt, ROOM_ID, session) }
     }
 
     @ParameterizedTest

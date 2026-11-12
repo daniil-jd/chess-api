@@ -49,13 +49,13 @@ class RequestForRoomProcessorTest {
 
         verify(exactly = 1) {
             distributorService.createUserRoomCandidate(message)
-            wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, emptyList(), null, session)
+            wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, emptyList(), null, null, session)
             distributorService.searchCandidatesAndCreateRooms()
         }
         rooms.forEach { room -> verify(exactly = 1) { wsSender.sendRoomCreatedMessage(room) } }
         verifyOrder {
             distributorService.createUserRoomCandidate(message)
-            wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, emptyList(), null, session)
+            wsSender.saveSessionAndSendNewSessionMessage(USER_ID_1, emptyList(), null, null, session)
             distributorService.searchCandidatesAndCreateRooms()
         }
         confirmVerified(distributorService, wsSender)

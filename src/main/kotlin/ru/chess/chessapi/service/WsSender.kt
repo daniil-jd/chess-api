@@ -55,6 +55,7 @@ class WsSender(
         userId: UUID,
         moveAcceptedMessages: List<MoveAcceptedMessage>,
         roomCreatedAt: Instant?,
+        roomId: UUID?,
         session: WebSocketSession
     ) {
         userSessionStateService.add(userId, session)
@@ -62,6 +63,7 @@ class WsSender(
             messageType = MessageType.NEW_WS,
             backendUserId = userId,
             sessionId = session.id,
+            room = roomId,
             turns = moveAcceptedMessages,
             matchServerTimeMs = roomCreatedAt?.toEpochMilli()
         )

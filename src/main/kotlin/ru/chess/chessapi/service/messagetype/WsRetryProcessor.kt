@@ -44,6 +44,7 @@ class WsRetryProcessor(
             message.backendUserId,
             roomAcceptedMessagesStateService.getMessagesByRoomId(room.id!!),
             room.createdAt,
+            room.id,
             session
         )
     }

@@ -233,19 +233,16 @@ class DistributorService(
     @Transactional
     fun updateRoomHistoryWhenMatchIsOver(
         roomId: UUID,
-        sideOfMove: SideType,
+        winnerSide: SideType?,
         finishType: FinishType
     ): RoomEntity {
-        val room = findRoomAndAddHistory(
-            roomId,
-            finishType.toString(),
-            promotionType = null,
-            sideOfMove
-        ).also {
-            it.winnerSide = sideOfMove
-            it.winType = finishType
-            it.roomStatus = RoomStatus.FINISHED
-        }
+        require(winnerSide != null || finishType == FinishType.DRAW) { "A decisive result requires a winner" }
+        val room = roomService.findActiveRoomForUpdate(roomId) ?: throw ActiveRoomDoesNotExistByUserIdException(roomId)
+        room.history = room.history?.let { "$it $finishType" } ?: finishType.toString()
+        room.winnerSide = winnerSide
+        room.winType = finishType
+        room.roomStatus = RoomStatus.FINISHED
+        room.updatedAt = timeService.getNowInstant()
         return roomService.save(room)
     }
 

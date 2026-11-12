@@ -34,7 +34,7 @@ class RoomDeadlineScheduler(
             val winnerSide = room.winnerSideForExpiredRoom()
 
             val message = MatchFinishedMessageDto(
-                messageType = MessageType.MATCH_FINISHED,
+                messageType = MessageType.MATCH_FINISHED_WS,
                 room = room.id!!,
                 winnerSide = winnerSide,
                 finishType = FinishType.TIMEOUT
